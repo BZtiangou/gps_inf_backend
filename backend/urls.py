@@ -26,4 +26,5 @@ urlpatterns = [
     path('sensor/', include('sensor.urls'), name='sensor'),  
     path('analysis/', include('analysis.urls'), name='analysis'),  
     path('pose/', include('pose.urls'), name='pose'),  
+    path('dict/', include('dict.urls'), name='dict'),  
 ]
