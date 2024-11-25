@@ -46,6 +46,7 @@ APPS = [
     "sensor",
     "analysis",
     "pose",
+    "dic",
 ]
 
 LOCAL_APPS = [
