@@ -27,4 +27,5 @@ urlpatterns = [
     path('analysis/', include('analysis.urls'), name='analysis'),  
     path('pose/', include('pose.urls'), name='pose'),  
     path('dict/', include('dict.urls'), name='dict'),  
+    path('ad/', include('ad.urls'), name='ad'),  
 ]
