@@ -7,6 +7,7 @@ import subprocess
 import os
 
 class ImagePredictAPIView(APIView):
+    permission_classes = []
     def post(self, request):
         # 获取上传的图片
         image_file = request.FILES.get('file')
