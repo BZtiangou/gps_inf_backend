@@ -25,10 +25,15 @@ class ImagePredictAPIView(APIView):
         # 调用预测脚本
         try:
             # 假设 judge.py 接受图片路径作为命令行参数，并输出预测结果
-            result = subprocess.run(['python', '/share/xyc/bigtiao/softvoting/judge.py', image_path], capture_output=True, text=True)
+            result = subprocess.run([
+                'bash', '-c',
+                f"source /share/xyc/bigtiao/softvoting/venv/bin/activate && python /share/xyc/bigtiao/softvoting/judge.py {image_path}"
+            ], capture_output=True, text=True)
             prediction = result.stdout.strip()
+            # 检查错误
+            # prediction = result.stderr.strip()
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # 返回预测结果
-        return Response({"file_url": file_url, "prediction": prediction}, status=status.HTTP_200_OK)
+        return Response({"file_url": file_url, "prediction": prediction,"img":image_path}, status=status.HTTP_200_OK)
