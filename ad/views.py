@@ -36,7 +36,7 @@ class ImagePredictAPIView(APIView):
             return Response({"error": "No image file provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         # 检查文件MIME类型
-        if image_file.content_type not in ['image/jpeg', 'image/png', 'image/gif']:
+        if image_file.content_type not in ['image/jpeg', 'image/png', 'image/gif','image/jpg']:
             return Response({"error": "Unsupported file type"}, status=status.HTTP_400_BAD_REQUEST)
 
         # # 检查图片文件头
