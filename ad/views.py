@@ -36,4 +36,4 @@ class ImagePredictAPIView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # 返回预测结果
-        return Response({"file_url": file_url, "prediction": prediction,"img":image_path}, status=status.HTTP_200_OK)
+        return Response({"prediction": prediction}, status=status.HTTP_200_OK)
