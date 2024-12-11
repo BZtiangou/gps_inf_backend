@@ -8,6 +8,86 @@ from rest_framework.permissions import IsAuthenticated
 from incdbscan import IncrementalDBSCAN
 import numpy as np
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAdminUser
+
+class adminGetGPSApi(APIView):
+    permission_classes = [IsAdminUser]
+    def post(self, request):
+        username = request.data.get('username')
+        if username:
+            # 获取与设备相关的位置信息
+            locations = LocationInf.objects.filter(username=username)
+            location_serializer = LocationSerializer(locations, many=True)
+            # 返回数据
+            return Response({
+                'username':username,
+                'Locations':location_serializer.data,
+            })
+        else:
+            return Response({'message': 'Please log in first'}, status=status.HTTP_400_BAD_REQUEST)
+
+class adminGetBTApi(APIView):
+    permission_classes = [IsAdminUser]
+    def post(self, request):
+        username = request.data.get('username')
+        if username:
+            # 获取与设备相关的蓝牙信息
+            bluetooths = BlueToothInf.objects.filter(username=username)
+            bluetooth_serializer = BlueToothSerializer(bluetooths, many=True)
+            # 返回数据
+            return Response({
+                'username':username,
+                'bluetooths': bluetooth_serializer.data,
+            })
+        else:
+            return Response({'message': 'Please log in first'}, status=status.HTTP_400_BAD_REQUEST)
+        
+class adminGetACCApi(APIView):
+    permission_classes = [IsAdminUser]
+    def post(self, request):
+        username = request.data.get('username')
+        if username:
+            # 获取与设备相关的加速计信息
+            accs = AccelerometerInf.objects.filter(username=username)
+            acc_serializer = AccSerializer(accs, many=True)
+            # 返回数据
+            return Response({
+                'username':username,
+                'accelerometers': acc_serializer.data,
+            })
+        else:
+            return Response({'message': 'Please log in first'}, status=status.HTTP_400_BAD_REQUEST)
+
+class adminGetGyroApi(APIView):
+    permission_classes = [IsAdminUser]
+    def post(self, request):
+        username = request.data.get('username')
+        if username:
+            # 获取与设备相关的加速计信息
+            gyro= GyroInf.objects.filter(username=username)
+            gyro_serializer = GyroSerializer(gyro, many=True)
+            # 返回数据
+            return Response({
+                'username':username,
+                'gyro': gyro_serializer.data,
+            })
+        else:
+            return Response({'message': 'Please log in first'}, status=status.HTTP_400_BAD_REQUEST)
+
+class adminGetBatteryApi(APIView):
+    permission_classes = [IsAdminUser]
+    def post(self, request):
+        username = request.data.get('username')
+        if username:
+            Battery= BatteryInf.objects.filter(username=username)
+            Battery_serializer = BatterySerializer(Battery, many=True)
+            # 返回数据
+            return Response({
+                'username':username,
+                'Battery': Battery_serializer.data,
+            })
+        else:
+            return Response({'message': 'Please log in first'}, status=status.HTTP_400_BAD_REQUEST)
 
 class UpdateLocationApi(APIView):
     permission_classes = [IsAuthenticated]

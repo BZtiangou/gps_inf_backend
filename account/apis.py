@@ -31,6 +31,15 @@ class AllUserNameApi(APIView):
         return Response(usernames)
         # serializer = userInfoSerializer(users, many=True)  
         # return Response(serializer.data)  
+
+class adminGetUserInfoApi(APIView):
+    permission_classes = [IsAdminUser]
+    def post(self, request):
+        username = request.data.get('username')
+        user = get_object_or_404(CustomUser, username=username)
+        seri=userInfoSerializer(user)
+        return Response(seri.data)
+
 #注册api
 class UserRegisterApi(APIView):
     permission_classes = []

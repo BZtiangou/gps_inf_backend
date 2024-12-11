@@ -7,6 +7,29 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
+from rest_framework.permissions import IsAdminUser
+
+class adminGetGPSClusterApi(APIView):
+    permission_classes = [IsAdminUser]
+    def post(self, request):
+        username = request.data.get('username')
+        if gps_cluster.objects.filter(username=username)!=None:
+            cluster = gps_cluster.objects.filter(username=username)
+            serializer = get_GpsclusterSerializers(cluster,many=True)
+            return Response(serializer.data)
+        else:
+            return Response({"The record does not exist"},status=status.HTTP_400_BAD_REQUEST)
+
+class adminGetBTClusterApi(APIView):
+    permission_classes = [IsAdminUser]
+    def post(self, request):
+        username = request.data.get('username')
+        if bt_cluster.objects.filter(username=username)!=None:
+            bt_inf = bt_cluster.objects.filter(username=username)
+            serializer = getBTlabelSerializer(bt_inf,many=True)
+            return Response(serializer.data)
+        else:
+            return Response({"The record does not exist"},status=status.HTTP_400_BAD_REQUEST)
 
 class updateLabelApi(APIView):
     permission_classes = [IsAuthenticated]

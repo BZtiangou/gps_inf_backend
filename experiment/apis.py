@@ -1,11 +1,58 @@
 from .models import experiment,exp_history
-from .serializers import seeExperimentSerializer,exp_historySerializer
+from .serializers import seeExperimentSerializer,exp_historySerializer,ExperimentSerializer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from datetime import datetime
 from account.models import CustomUser
 from django.utils import timezone
+from rest_framework.permissions import IsAdminUser
+from rest_framework import status
+
+class adminSeeExperimentApi(APIView):
+    permission_classes=[IsAdminUser]
+    def get(self,request):
+        exp_list = experiment.objects.all()
+        serializer = seeExperimentSerializer(exp_list, many=True)
+        return Response(serializer.data)
+
+class adminAddExp(APIView):
+    permission_classes = [IsAdminUser]  # 确保只有管理员可以访问
+
+    def post(self, request):
+        serializer = ExperimentSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class adminModifyExp(APIView):
+    permission_classes = [IsAdminUser]  # 确保只有管理员可以访问
+
+    def post(self, request):
+        pk = request.data.get('exp_id')
+        try:
+            experiment_instance = experiment.objects.get(exp_id=pk)
+        except experiment.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ExperimentSerializer(experiment_instance, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class adminDeleteExp(APIView):
+    permission_classes = [IsAdminUser]  # 确保只有管理员可以访问
+
+    def post(self, request):
+        pk = request.data.get('exp_id')
+        try:
+            experiment_instance = experiment.objects.get(exp_id=pk)
+            experiment_instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except experiment.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
 class seeExperimentApi(APIView):
     permission_classes=[]
@@ -58,7 +105,6 @@ class myExperimentApi(APIView):
         else:
             Serializer = seeExperimentSerializer(experiment.objects.get(exp_id=CustomUser.objects.get(username=username).exp_id))
             return Response([Serializer.data])
-        
 
 class exitExperimentApi(APIView):
     permission_classes = [IsAuthenticated]

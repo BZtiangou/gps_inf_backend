@@ -1,5 +1,5 @@
 from django.urls import path
-from .apis import updateLabelApi,get_gps_cluster,updateBTlabelApi,getBTLabelApi
+from .apis import updateLabelApi,get_gps_cluster,updateBTlabelApi,getBTLabelApi,adminGetBTClusterApi,adminGetGPSClusterApi
 from .apis import  getGpsName
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -17,4 +17,6 @@ urlpatterns = [
     path("updateBTlabel/",updateBTlabelApi.as_view(),name="updateBTlabel"),
     path("getBTLabel/",getBTLabelApi.as_view(),name="getBTLabel"),
     path("getGpsName/",getGpsName.as_view(),name="getGpsName"),
+    path("adminGetBTCluster/",adminGetBTClusterApi.as_view(),name="adminGetBTCluster"),
+    path("adminGetGPSCluster/",adminGetGPSClusterApi.as_view(),name="adminGetGPSCluster"),
 ]
