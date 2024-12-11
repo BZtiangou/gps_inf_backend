@@ -179,6 +179,7 @@ from base.cors import *
 from base.rest_framework import *
 from base.simplejwt import *
 from base.email_inf import *
+from base.sentry import *
 AUTH_USER_MODEL = 'account.CustomUser'
 
 STATIC_ROOT = '/var/www/gps_inf/static'

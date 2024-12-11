@@ -14,7 +14,7 @@ from django.utils.crypto import get_random_string
 from django.core.mail import send_mail
 from django.utils import timezone
 from base import email_inf
-
+from rest_framework.permissions import IsAdminUser
 class getUserInfoApi(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
@@ -22,8 +22,15 @@ class getUserInfoApi(APIView):
         user = get_object_or_404(CustomUser, username=username)
         seri=userInfoSerializer(user)
         return Response(seri.data)
-        
-    
+
+class AllUserNameApi(APIView):
+    permission_classes = [IsAdminUser]  # 确保只有管理员可以访问
+    def get(self, request):
+        users = CustomUser.objects.all()
+        usernames = [user.username for user in users]
+        return Response(usernames)
+        # serializer = userInfoSerializer(users, many=True)  
+        # return Response(serializer.data)  
 #注册api
 class UserRegisterApi(APIView):
     permission_classes = []

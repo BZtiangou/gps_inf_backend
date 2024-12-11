@@ -1,6 +1,6 @@
 from django.urls import path
 from .apis import UserRegisterApi,UserLoginApi
-from .apis import modifyPasswordApi,modifyEmailApi,modifyPhoneApi,modifyGenderApi,modifyNameApi,getUserInfoApi
+from .apis import modifyPasswordApi,modifyEmailApi,modifyPhoneApi,modifyGenderApi,modifyNameApi,getUserInfoApi,AllUserNameApi
 from .apis import Is_PasswordApi,ResetPasswordApi,checkphoneApi
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -23,4 +23,5 @@ urlpatterns = [
     path("modify/name/",modifyNameApi.as_view(),name="modifyName"),
     path("getUserInfo/",getUserInfoApi.as_view(),name="getUserInfo"),
     path("checkphone/",checkphoneApi.as_view(),name="checkphone"),
+    path("allUserName/",AllUserNameApi.as_view(),name="allUserName"),
 ]
