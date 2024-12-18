@@ -45,7 +45,7 @@ class adminGetBTApi(APIView):
 class adminGetACCApi(APIView):
     permission_classes = [IsAdminUser]
     def post(self, request):
-        username = request.data.get('username')
+        username = request.data.get('username')[:10000]
         if username:
             # 获取与设备相关的加速计信息
             accs = AccelerometerInf.objects.filter(username=username)
@@ -64,7 +64,7 @@ class adminGetGyroApi(APIView):
         username = request.data.get('username')
         if username:
             # 获取与设备相关的加速计信息
-            gyro= GyroInf.objects.filter(username=username)
+            gyro= GyroInf.objects.filter(username=username)[:10000]
             gyro_serializer = GyroSerializer(gyro, many=True)
             # 返回数据
             return Response({

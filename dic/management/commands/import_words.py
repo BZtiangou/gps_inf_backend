@@ -21,7 +21,7 @@ fields = {
 }
 
 # 读取 CSV 文件并将数据保存到数据库
-def import_words_to_db(csv_filename, num_words=3500):
+def import_words_to_db(csv_filename, num_words=500):
     try:
         with open(csv_filename, mode='r', encoding='utf-8') as file:
             reader = csv.DictReader(file)
