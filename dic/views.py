@@ -8,6 +8,6 @@ from .serializers import WordEntrySerializer
 class GetWordInfoApi(APIView):
     permission_classes=[]
     def get(self, request):
-        words = WordEntry.objects.all()
+        words = WordEntry.objects.all()[:100]
         serializer = WordEntrySerializer(words, many=True)
         return Response(serializer.data)
