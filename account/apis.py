@@ -15,6 +15,34 @@ from django.core.mail import send_mail
 from django.utils import timezone
 from base import email_inf
 from rest_framework.permissions import IsAdminUser
+
+class AdminLoginApi(APIView):
+    permission_classes = []
+
+    def post(self, request: Request) -> Response:
+        serializer = UserLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        try:
+            user = get_user_model().objects.get(username=serializer.validated_data["username"])
+        except ObjectDoesNotExist:
+            return Response({"message": "User not registered"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not user.check_password(serializer.validated_data["password"]):
+            return Response({"message": "User login failed, please check your account password"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if user.is_staff:  # 假设管理员的标识是 is_staff 字段
+            refresh: RefreshToken = RefreshToken.for_user(user)  # 生成refresh token
+            return Response({
+                "username": user.username,
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+                "expire": refresh.access_token.payload["exp"] - refresh.access_token.payload["iat"],
+            })
+        else:
+            return Response({"message": "User is not an admin"}, status=status.HTTP_401_UNAUTHORIZED)
+
+
 class getUserInfoApi(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):

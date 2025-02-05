@@ -9,6 +9,16 @@ class Survey(models.Model):
     description = models.TextField(verbose_name="问卷描述",blank=True)
     created_at = models.DateTimeField(auto_now_add=True,verbose_name="创建时间")
     questions= models.CharField(max_length=200,verbose_name="问卷包含的问题ID")
+    # 触发方式，如 'daily', 'weekly', 'monthly'
+    trigger = models.CharField(max_length=50, verbose_name="问卷的触发方式", choices=[
+        ('daily', '每天'),
+        ('weekly', '每周'),
+        ('monthly', '每月')
+    ])
+    # 触发时间
+    trigger_time = models.TimeField(verbose_name="问卷触发时间")
+    def __str__(self):
+        return f"{self.title} - {self.trigger} at {self.trigger_time}"
 
 class Question(models.Model):
     class Meta:

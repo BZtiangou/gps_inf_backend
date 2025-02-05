@@ -4,4 +4,4 @@ from dic.models import WordEntry
 class WordEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = WordEntry
-        fields = ['word', 'tag', 'translation']
+        fields = ['id','word', 'tag', 'translation']

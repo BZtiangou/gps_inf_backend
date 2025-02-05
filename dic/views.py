@@ -16,7 +16,7 @@ class GetWordInfoApi(APIView):
         return Response(serializer.data)
 
 
-class RandomfamiliarWordVApi(APIView):
+class RandomUnfamiliarWordApi(APIView):
     permission_classes = [IsAuthenticated]  # 确保用户已登录才能访问该接口
     def get(self, request):
         # 获取当前用户
@@ -38,7 +38,7 @@ class RandomfamiliarWordVApi(APIView):
         serializer = WordEntrySerializer(random_word)
         return Response(serializer.data)
 
-class RandomUnfamiliarWordApi(APIView):
+class RandomfamiliarWordApi(APIView):
     permission_classes = [IsAuthenticated]  # 确保用户已登录才能访问该接口
     def get(self, request):
         # 获取当前用户

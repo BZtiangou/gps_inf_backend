@@ -15,7 +15,7 @@ import dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-dotenv.load_dotenv(dotenv_path=BASE_DIR.parent / ".env", verbose=True)
+dotenv.load_dotenv(dotenv_path=BASE_DIR / ".env", verbose=True)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -107,7 +107,6 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
 if DEBUG=='True':
     DATABASES = {
         'default': {
