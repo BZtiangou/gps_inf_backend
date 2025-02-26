@@ -15,7 +15,58 @@ from django.core.mail import send_mail
 from django.utils import timezone
 from base import email_inf
 from rest_framework.permissions import IsAdminUser
+from .models import CustomUser, InvitationCode
+from .serializers import InvitationCodeSerializer, ExperimentParticipantSerializer
+from .serializers import AdminUpdateSerializer
+import random
+import string
 
+class GetUserInfoByNameApi(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        # 从请求体中获取 name 字段
+        name = request.data.get("name")
+        
+        if not name:
+            return Response({"message": "Name field is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # 根据提供的姓名查找用户
+            user = CustomUser.objects.get(name=name)
+        except CustomUser.DoesNotExist:
+            return Response({"message": "User not found with the given name"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 序列化用户信息
+        seri = userInfoSerializer(user)
+        return Response(seri.data)
+
+class AdminUpdateProfileApi(APIView):
+    """
+    管理员修改个人信息 API（使用 `POST` 方法）
+    仅 `is_staff=True` 或 `is_superuser=True` 的用户可以修改个人信息
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        """管理员修改个人信息"""
+        user = request.user
+
+        if not user.is_staff and not user.is_superuser:
+            return Response({"message": "Permission Denied"}, status=status.HTTP_403_FORBIDDEN)
+
+        # 过滤空值，确保只更新提供的字段
+        update_fields = {key: value for key, value in request.data.items() if value}
+        if not update_fields:
+            return Response({"message": "No fields provided for update"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 进行部分更新
+        serializer = AdminUpdateSerializer(user, data=update_fields, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Profile updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
 class AdminLoginApi(APIView):
     permission_classes = []
 
@@ -55,10 +106,10 @@ class AllUserNameApi(APIView):
     permission_classes = [IsAdminUser]  # 确保只有管理员可以访问
     def get(self, request):
         users = CustomUser.objects.all()
-        usernames = [user.username for user in users]
-        return Response(usernames)
-        # serializer = userInfoSerializer(users, many=True)  
-        # return Response(serializer.data)  
+        # usernames = [user.username for user in users]
+        # return Response(usernames)
+        serializer = userInfoSerializer(users, many=True)  
+        return Response(serializer.data)  
 
 class adminGetUserInfoApi(APIView):
     permission_classes = [IsAdminUser]
@@ -282,3 +333,73 @@ class modifyNameApi(APIView):
             user.save()
             return Response("Name changed successfully")
         return Response({"The user name does not exist"},status=status.HTTP_400_BAD_REQUEST)
+    
+class CreateInvitationCodeApi(APIView):
+    """
+    创建邀请码 API
+    仅 `staff` 或 `admin` 用户可以创建邀请码
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if not user.is_staff and not user.is_superuser:
+            return Response({"message": "Permission Denied"}, status=status.HTTP_403_FORBIDDEN)
+        
+        # 生成邀请码
+        invitation_code = InvitationCode.objects.create(
+            creator=user,
+            code=''.join(random.choices(string.ascii_uppercase + string.digits, k=8)),
+            remark=request.data.get("remark", "")
+        )
+
+        serializer = InvitationCodeSerializer(invitation_code)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class ManageExperimentParticipantsApi(APIView):
+    """
+    管理实验参与者 API
+    允许：
+    1. 移除实验参与者
+    2. 设置某个用户为 `staff`
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """获取当前管理员的实验参与者列表"""
+        if not request.user.is_staff and not request.user.is_superuser:
+            return Response({"message": "Permission Denied"}, status=status.HTTP_403_FORBIDDEN)
+        
+        participants = CustomUser.objects.filter(exp_id=request.user.exp_id)
+        serializer = ExperimentParticipantSerializer(participants, many=True)
+        return Response(serializer.data)
+
+    def delete(self, request, user_id):
+        """移除实验参与者"""
+        if not request.user.is_staff and not request.user.is_superuser:
+            return Response({"message": "Permission Denied"}, status=status.HTTP_403_FORBIDDEN)
+
+        user = get_object_or_404(CustomUser, id=user_id)
+        if user.exp_id != request.user.exp_id:
+            return Response({"message": "You cannot remove users from other experiments"}, status=status.HTTP_403_FORBIDDEN)
+
+        user.exp_id = -1  
+        user.exp_name = ""
+        user.exp_state = "inactive"
+        user.save()
+        
+        return Response({"message": f"User {user.username} removed from the experiment"}, status=status.HTTP_200_OK)
+
+    def patch(self, request, user_id):
+        """修改用户权限（设置 `staff` 角色）"""
+        if not request.user.is_staff and not request.user.is_superuser:
+            return Response({"message": "Permission Denied"}, status=status.HTTP_403_FORBIDDEN)
+
+        user = get_object_or_404(CustomUser, id=user_id)
+        if user.exp_id != request.user.exp_id:
+            return Response({"message": "You cannot modify users from other experiments"}, status=status.HTTP_403_FORBIDDEN)
+
+        user.is_staff = request.data.get("is_staff", False)
+        user.save()
+        
+        return Response({"message": f"User {user.username} role updated"}, status=status.HTTP_200_OK)

@@ -4,11 +4,11 @@ from .models import Survey, Question, Answer
 class SurveySerializer(serializers.ModelSerializer):
     class Meta:
         model = Survey
-        fields = ['survey_id', 'title', 'description', 'created_at', 'questions']
+        fields = ['survey_id', 'title', 'description', 'created_at', 'questions','trigger','trigger_time']
     title = serializers.CharField(max_length=200)
     description = serializers.CharField()
     questions = serializers.CharField()
-
+    
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question

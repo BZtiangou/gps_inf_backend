@@ -24,7 +24,7 @@ class adminGetGPSApi(APIView):
                 'Locations':location_serializer.data,
             })
         else:
-            return Response({'message': 'Please log in first'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': f'{username}Please log in first'}, status=status.HTTP_400_BAD_REQUEST)
 
 class adminGetBTApi(APIView):
     permission_classes = [IsAdminUser]

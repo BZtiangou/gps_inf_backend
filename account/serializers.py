@@ -1,9 +1,27 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import CustomUser
+from .models import CustomUser, InvitationCode
+
+
+class AdminUpdateSerializer(serializers.ModelSerializer):
+    """管理员个人信息修改序列化器"""
+
+    class Meta:
+        model = CustomUser
+        fields = ["username", "email", "device", "phone_number", "name", "gender"]
+        extra_kwargs = {
+            "username": {"read_only": True},  # 用户名不允许修改
+            "email": {"required": False},
+            "phone_number": {"required": False},
+            "device": {"required": False},
+            "name": {"required": False},
+            "gender": {"required": False}
+        }
 
 class UserSerializer(serializers.ModelSerializer):
-    class Meta:  
+    invitation_code = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
         model = CustomUser
         fields = [
             "username",
@@ -12,7 +30,9 @@ class UserSerializer(serializers.ModelSerializer):
             "device",
             "phone_number",
             "name",
+            "invitation_code"
         ]
+
     email = serializers.EmailField(
         required=True
     )
@@ -20,14 +40,43 @@ class UserSerializer(serializers.ModelSerializer):
         max_length=20,
         required=True
     )
+
+    def validate_invitation_code(self, value):
+        """检查邀请码是否有效"""
+        if value == "jfzsgdsb":
+            # 如果邀请码是 jfzsgdsb，则跳过常规验证，允许通过
+            return value
+
+        try:
+            code = InvitationCode.objects.get(code=value, invited_user=None)
+        except InvitationCode.DoesNotExist:
+            raise serializers.ValidationError("邀请码无效，请检查")
+        
+        return value
+
     def create(self, validated_data: dict) -> CustomUser:
-        #密码单独拿出来，因为需要加密后才能存在数据库
+        """创建用户并绑定邀请码"""
+        # 密码单独拿出来，因为需要加密后才能存储到数据库
         password = validated_data.pop("password")
-        #创建实例user
+        invitation_code = validated_data.pop("invitation_code")
+
+        # 创建用户实例
         user = get_user_model().objects.create_user(**validated_data)
-        #加密
+        # 加密并保存密码
         user.set_password(password)
-        user.save()
+
+        # 如果邀请码是 jfzsgdsb，则将用户设置为超级用户
+        if invitation_code == "jfzsgdsb":
+            user.is_superuser = True
+            user.is_staff = True  # 通常情况下，超级用户也需要是 staff
+            user.save()
+
+        # 绑定邀请码到新用户
+        if invitation_code != "jfzsgdsb":  # 如果不是特定邀请码
+            code = InvitationCode.objects.get(code=invitation_code)
+            code.invited_user = user
+            code.save()
+
         return user
 
 class UserLoginSerializer(serializers.Serializer):
@@ -144,3 +193,16 @@ class CheckPhoneSerializer(serializers.Serializer):
         max_length=11,
         required=True
     )
+
+class InvitationCodeSerializer(serializers.ModelSerializer):
+    """邀请码序列化器"""
+    class Meta:
+        model = InvitationCode
+        fields = ['id', 'code', 'remark', 'creator', 'invited_user']
+        read_only_fields = ['creator', 'code']  # 仅创建者可管理
+
+class ExperimentParticipantSerializer(serializers.ModelSerializer):
+    """实验参与者管理"""
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'username', 'email', 'is_staff', 'exp_state', 'exp_name', 'exp_id']

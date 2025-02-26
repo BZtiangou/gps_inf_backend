@@ -9,4 +9,3 @@ urlpatterns = [
     path("submitQuestion/",submitQuestionApi.as_view(),name="submitQuestion"),
     path("getquestions/",getquestionsApi.as_view(),name="getquestions"),
 ]
- 
