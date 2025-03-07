@@ -384,7 +384,7 @@ class ManageExperimentParticipantsApi(APIView):
             return Response({"message": "You cannot remove users from other experiments"}, status=status.HTTP_403_FORBIDDEN)
 
         user.exp_id = -1  
-        user.exp_name = ""
+        user.exp_title = ""
         user.exp_state = "inactive"
         user.save()
         

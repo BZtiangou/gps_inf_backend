@@ -1,5 +1,7 @@
 from .models import Experiment,exp_history, Protocol, Survey, SurveyItem, Trigger
 from .serializers import seeExperimentSerializer,exp_historySerializer,ExperimentSerializer,ProtocolSerializer,ProtocolDetailSerializer
+from .serializers import UserExperimentSerializer,SurveyUpdateSerializer
+from django.db import transaction
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -10,6 +12,24 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework import status
 from django.db.models import Prefetch
 
+class SurveyUpdateAPI(APIView):
+    def post(self, request):
+        serializer = SurveyUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            protocol = Protocol.objects.get(pk=serializer.validated_data['protocol_id'])
+        except Protocol.DoesNotExist:
+            return Response({"error": "协议不存在"}, status=404)
+
+        # 添加权限验证（根据项目需求扩展）
+        # if not request.user.is_creator_of(protocol):
+        #     return Response({"error": "无权修改协议"}, status=403)
+        with transaction.atomic():
+            updated_protocol = serializer.update(protocol, serializer.validated_data)
+        return Response({"status": "更新成功", "protocol_id": updated_protocol.pk}, status=200)
+    
 class adminSeeExperimentApi(APIView):
     permission_classes=[IsAdminUser]
     def get(self,request):
@@ -68,14 +88,14 @@ class chooseExperimentApi(APIView):
     permission_classes = [IsAuthenticated]
     def post(self, request):
         user = request.user
-        if request.data.get('exp_name') is None:
+        if request.data.get('exp_title') is None:
             return Response("Please select an experiment")
         
-        new_exp_name = request.data.get('exp_name')
-        new_experiment = Experiment.objects.get(exp_name=new_exp_name)
+        new_exp_title = request.data.get('exp_title')
+        new_experiment = Experiment.objects.get(exp_title=new_exp_title)
         new_exp_id = new_experiment.exp_id
         username = user.username
-        exp_history.objects.create(exp_id=new_exp_id, exp_name=new_exp_name, username=username,description=new_experiment.description)
+        exp_history.objects.create(exp_id=new_exp_id, exp_title=new_exp_title, username=username,description=new_experiment.description)
 
         # 找到用户当前参与的实验
         try:
@@ -93,8 +113,8 @@ class chooseExperimentApi(APIView):
         Experiment.objects.filter(exp_id=new_exp_id).update(participants_name=new_participants)
 
         # 更新用户信息
-        CustomUser.objects.filter(username=user.username).update(exp_id=new_exp_id, exp_name=new_exp_name, exp_state="active")
-        return Response(f"Your choice {new_exp_name} has been successfully saved !")
+        CustomUser.objects.filter(username=user.username).update(exp_id=new_exp_id, exp_title=new_exp_title, exp_state="active")
+        return Response(f"Your choice {new_exp_title} has been successfully saved !")
 
 class myExperimentApi(APIView):
     permission_classes = [IsAuthenticated]
@@ -132,7 +152,7 @@ class exitExperimentApi(APIView):
             # 更新实验历史记录的退出时间
             exp_history.objects.filter(exp_id=user.exp_id, username=user.username, exit_time__isnull=True).update(exit_time=timezone.now())
 
-            CustomUser.objects.filter(username=user.username).update(exp_id=-1, exp_name="", exp_state="inactive")
+            CustomUser.objects.filter(username=user.username).update(exp_id=-1, exp_title="", exp_state="inactive")
             return Response("You have successfully exited the experiment")
         else:
             return Response("You are not participating in the experiment or have quit")
@@ -145,7 +165,8 @@ class seeExperimentHistoryApi(APIView):
         exp_history_list = exp_history.objects.filter(username=username)
         serializer = exp_historySerializer(exp_history_list, many=True)
         return Response(serializer.data)
-    
+
+
 class CreateProtocolAPIView(APIView):
     """
     API 用于创建新的 Protocol 实验协议（包含 Survey）
@@ -288,7 +309,56 @@ class UpdateProtocolAPIView(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
     
+class ProtocolDetailAPIView(APIView):
+    """
+    获取指定Protocol的详细信息
+    请求方式：GET
+    参数：protocol_id（路径参数）
+    权限要求：JWT认证用户且是该协议的创建者
+    """
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request, protocol_id):
+        try:
+            # 获取当前登录用户
+            username = request.user.username
+            
+            # 获取Protocol对象并验证权限
+            protocol = Protocol.objects.get(
+                id=protocol_id,
+                creator=username
+            )
+            
+            # 使用预取优化查询
+            protocol = Protocol.objects.filter(pk=protocol.id).prefetch_related(
+                Prefetch('surveys',
+                    queryset=Survey.objects.select_related('trigger').prefetch_related(
+                        Prefetch('items', queryset=SurveyItem.objects.all())
+                    )
+                )
+            ).first()
+
+            serializer = ProtocolDetailSerializer(
+                protocol,
+                context={'request': request}
+            )
+
+            return Response({
+                "user": username,
+                "protocol": serializer.data
+            })
+
+        except Protocol.DoesNotExist:
+            return Response(
+                {"error": "协议不存在或无权访问"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"查询失败: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
 class UserProtocolAPIView(APIView):
     """
     获取用户协议列表（包含完整问卷详细信息）
@@ -322,6 +392,224 @@ class UserProtocolAPIView(APIView):
                 "protocols": serializer.data
             })
 
+        except Exception as e:
+            return Response(
+                {"error": f"查询失败: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        
+class CreateExperimentAPIView(APIView):
+    """
+    创建新实验API
+    请求方式：POST
+    权限要求：管理员
+    功能说明：
+    1. 创建新实验必须关联已存在的协议
+    2. 自动记录实验创建者为当前管理员
+    3. 支持多管理人员设置
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        # 复制请求数据以避免修改原始数据
+        data = request.data.copy()
+        
+        # 自动填充实验创建者
+        data['exp_creator'] = request.user.username
+        
+        # 验证协议是否存在
+        protocol_id = data.get('protocol_id')
+        if not Protocol.objects.filter(id=protocol_id).exists():
+            return Response(
+                {"error": f"协议 '{protocol_id}' 不存在"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 序列化验证
+        serializer = ExperimentSerializer(data=data)
+        if serializer.is_valid():
+            try:
+                # 保存实验并返回结果
+                experiment = serializer.save()
+                return Response(
+                    {
+                        "message": "实验创建成功",
+                        "exp_id": experiment.exp_id,
+                        "protocol": protocol_id,
+                        "start_time": experiment.start_time,
+                        "end_time": experiment.end_time
+                    },
+                    status=status.HTTP_201_CREATED
+                )
+            except Exception as e:
+                return Response(
+                    {"error": f"服务器内部错误: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        
+class DeleteExperimentAPIView(APIView):
+    """
+    删除实验API
+    请求方式：POST
+    权限要求：管理员
+    请求参数：
+    {
+        "exp_id": 123
+    }
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        exp_id = request.data.get('exp_id')
+        
+        if not exp_id:
+            return Response(
+                {"error": "缺少 exp_id 参数"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            experiment = Experiment.objects.get(exp_id=exp_id)
+            experiment.delete()
+            return Response(
+                {"message": f"实验 {exp_id} 删除成功"},
+                status=status.HTTP_204_NO_CONTENT
+            )
+        except Experiment.DoesNotExist:
+            return Response(
+                {"error": "指定实验不存在"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+class UpdateExperimentAPIView(APIView):
+    """
+    更新实验API
+    请求方式：POST
+    权限要求：管理员
+    请求参数示例：
+    {
+        "exp_id": 123,
+        "exp_title": "更新后的实验名称",
+        "description": "新的实验描述"
+    }
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        exp_id = request.data.get('exp_id')
+        if not exp_id:
+            return Response(
+                {"error": "缺少 exp_id 参数"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            experiment = Experiment.objects.get(exp_id=exp_id)
+        except Experiment.DoesNotExist:
+            return Response(
+                {"error": "实验不存在"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = ExperimentSerializer(
+            experiment,
+            data=request.data,
+            partial=True  # 允许部分更新
+        )
+
+        if serializer.is_valid():
+            # 协议名称更新时需要验证存在性
+            if 'protocol_name' in request.data:
+                if not Protocol.objects.filter(protocol_name=request.data['protocol_name']).exists():
+                    return Response(
+                        {"error": "指定协议不存在"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            serializer.save()
+            return Response(
+                {
+                    "message": "实验更新成功",
+                    "data": serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+        return Response(
+            {
+                "error": "数据验证失败",
+                "details": serializer.errors
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+class ExperimentDetailAPIView(APIView):
+    """
+    获取实验详情API
+    请求方式：POST
+    权限要求：认证用户
+    请求参数示例：
+    {
+        "exp_id": 123
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        exp_id = request.data.get('exp_id')
+        if not exp_id:
+            return Response(
+                {"error": "缺少 exp_id 参数"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            experiment = Experiment.objects.get(exp_id=exp_id)
+        except Experiment.DoesNotExist:
+            return Response(
+                {"error": "实验不存在"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = ExperimentSerializer(experiment)
+        return Response({
+            "experiment": serializer.data,
+            "participants_count": len(experiment.participants_name.split(';')) if experiment.participants_name else 0
+        })
+
+
+class UserExperimentListAPIView(APIView):
+    """
+    获取用户创建的实验列表API
+    请求方式：GET
+    权限要求：JWT认证用户
+    响应示例：
+    {
+        "experiments": [
+            {"exp_id": 1, "exp_title": "实验1"},
+            {"exp_id": 2, "exp_title": "实验2"}
+        ]
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # 从JWT获取用户名
+            username = request.user.username
+            
+            # 获取用户创建的所有实验
+            experiments = Experiment.objects.filter(exp_creator=username)
+            
+            # 序列化数据
+            serializer = UserExperimentSerializer(experiments, many=True)
+            
+            return Response({
+                "experiments": serializer.data
+            })
+            
         except Exception as e:
             return Response(
                 {"error": f"查询失败: {str(e)}"},

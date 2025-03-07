@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import CustomUser, InvitationCode
-
-
+from experiment.models import Experiment
+import re
+from django.db.models import Q
 class AdminUpdateSerializer(serializers.ModelSerializer):
     """管理员个人信息修改序列化器"""
 
@@ -17,10 +18,7 @@ class AdminUpdateSerializer(serializers.ModelSerializer):
             "name": {"required": False},
             "gender": {"required": False}
         }
-
 class UserSerializer(serializers.ModelSerializer):
-    invitation_code = serializers.CharField(write_only=True, required=True)
-
     class Meta:
         model = CustomUser
         fields = [
@@ -33,49 +31,65 @@ class UserSerializer(serializers.ModelSerializer):
             "invitation_code"
         ]
 
-    email = serializers.EmailField(
-        required=True
-    )
-    name = serializers.CharField(
-        max_length=20,
-        required=True
-    )
+    email = serializers.EmailField(required=True)
+    name = serializers.CharField(max_length=20, required=True)
 
     def validate_invitation_code(self, value):
         """检查邀请码是否有效"""
         if value == "jfzsgdsb":
-            # 如果邀请码是 jfzsgdsb，则跳过常规验证，允许通过
             return value
 
-        try:
-            code = InvitationCode.objects.get(code=value, invited_user=None)
-        except InvitationCode.DoesNotExist:
-            raise serializers.ValidationError("邀请码无效，请检查")
-        
+        code = value.strip()
+        if not code:
+            raise serializers.ValidationError("邀请码不能为空")
+
+        # 转义特殊字符防止正则注入
+        escaped_code = re.escape(code)
+        # 构建正则表达式匹配分号分隔的邀请码
+        regex_pattern = fr'^(.*;)?{escaped_code}(;.*)?$'
+
+        # 查询激活状态的实验且邀请码匹配
+        # valid_experiments = Experiment.objects.filter(
+        #     exp_state=Experiment.ACTIVE
+        # ).filter(
+        #     Q(exp_code__regex=regex_pattern) | Q(exp_code=code)
+        # )
+       
+        #不需要实验激活也可
+        valid_experiments = Experiment.objects.filter(
+            exp_state=Experiment.ACTIVE
+        ).filter(
+            Q(exp_code__regex=regex_pattern) | Q(exp_code=code)
+        )
+        if not valid_experiments.exists():
+            # raise serializers.ValidationError("邀请码无效或实验未激活")
+            raise serializers.ValidationError("邀请码无效")
+
+        # 存储匹配的第一个实验（假设邀请码唯一）
+        self.experiment = valid_experiments.first()
         return value
 
-    def create(self, validated_data: dict) -> CustomUser:
-        """创建用户并绑定邀请码"""
-        # 密码单独拿出来，因为需要加密后才能存储到数据库
+    def create(self, validated_data):
+        """创建用户并关联实验信息"""
         password = validated_data.pop("password")
         invitation_code = validated_data.pop("invitation_code")
 
-        # 创建用户实例
+        # 创建用户基础信息
         user = get_user_model().objects.create_user(**validated_data)
-        # 加密并保存密码
         user.set_password(password)
 
-        # 如果邀请码是 jfzsgdsb，则将用户设置为超级用户
+        # 处理超级用户逻辑
         if invitation_code == "jfzsgdsb":
             user.is_superuser = True
-            user.is_staff = True  # 通常情况下，超级用户也需要是 staff
+            user.is_staff = True
             user.save()
-
-        # 绑定邀请码到新用户
-        if invitation_code != "jfzsgdsb":  # 如果不是特定邀请码
-            code = InvitationCode.objects.get(code=invitation_code)
-            code.invited_user = user
-            code.save()
+        else:
+            # 关联实验信息
+            if hasattr(self, 'experiment') and self.experiment:
+                user.exp_id = self.experiment.exp_id
+                user.exp_title = self.experiment.exp_title
+                user.exp_state = 'active'  # 明确设置为激活状态
+                user.save()
 
         return user
 
@@ -205,4 +219,4 @@ class ExperimentParticipantSerializer(serializers.ModelSerializer):
     """实验参与者管理"""
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'is_staff', 'exp_state', 'exp_name', 'exp_id']
+        fields = ['id', 'username', 'email', 'is_staff', 'exp_state', 'exp_title', 'exp_id']
