@@ -1,86 +1,216 @@
 from django.db import models
 
-# 基础传感器配置抽象类
-class SensorBase(models.Model):
-    class Meta:
-        abstract = True
-    
-    @classmethod
-    def create_sensor_fields(cls, prefix, mode_choices, interval_choices):
-        # 创建通用传感器字段的方法保持不变
-        return (
-            models.CharField(
-                max_length=16,
-                verbose_name=f"{prefix}监听模式",
-                choices=mode_choices,
-                default="onchange",
-                name=f"{prefix}_mode"
-            ),
-            models.CharField(
-                max_length=16,
-                verbose_name=f"{prefix}间隔模式", 
-                choices=interval_choices,
-                default="normal",
-                name=f"{prefix}_interval"
-            )
-        )
-
-# GPS配置抽象类
-class GpsConfig(models.Model):
-    class Meta:
-        abstract = True
-    
-    gps_frequency = models.IntegerField(verbose_name="GPS调用间隔(分钟)", default=-1)
-    gps_altitude = models.BooleanField(verbose_name="是否记录海拔高度", default=False)
-    gps_accuracy = models.FloatField(verbose_name="GPS 精度要求（米）", default=5.0)
-    gps_isHighAccuracy = models.BooleanField(verbose_name="是否使用高精度模式", default=True)
-    gps_geocode = models.BooleanField(verbose_name="是否获取地理编码信息", default=False)
-    gps_timeout = models.IntegerField(verbose_name="GPS 获取超时时间（秒）", default=30)
-
-# 蓝牙配置抽象类
-class BluetoothConfig(models.Model):
-    class Meta:
-        abstract = True
-    
-    bt_frequency = models.IntegerField(verbose_name="蓝牙调用频率(分钟)", default=-1)
-    bt_services = models.JSONField(verbose_name="扫描的蓝牙服务 UUID", default=list, blank=True)
-    bt_allowDuplicatesKey = models.BooleanField(verbose_name="是否允许重复蓝牙数据", default=False)
-    bt_interval = models.IntegerField(verbose_name="蓝牙扫描间隔（秒）", default=5)
-    bt_powerLevel = models.CharField(
-        max_length=16, 
-        verbose_name="蓝牙功率级别", 
-        choices=[("low", "低功耗"), ("medium", "中等功耗"), ("high", "高功耗")],
-        default="medium"
-    )
-
-# 传感器配置类保持原样
-class GyroSensor(SensorBase):
-    (gyro_mode, gyro_interval) = SensorBase.create_sensor_fields(
-        prefix="陀螺仪",
-        mode_choices=[("onchange","监听变化值"), ("nochange","无需变化的监听")],
-        interval_choices=[("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")]
-    )
-    class Meta:
-        abstract = True
-
-class AccSensor(SensorBase):
-    (acc_mode, acc_interval) = SensorBase.create_sensor_fields(
-        prefix="加速度计",
-        mode_choices=[("onchange","监听变化值"), ("nochange","无需变化的监听")],
-        interval_choices=[("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")]
-    )
-    class Meta:
-        abstract = True
-
-# 最终的Protocol模型
-class Protocol(GyroSensor, AccSensor, GpsConfig, BluetoothConfig, models.Model):
+    # 传感器参数配置模板
+SENSOR_PARAMS = [
+    # GPS 配置
+    {
+        "prefix": "gps",
+        "verbose_prefix": "GPS",
+        "params": [
+            {
+                "name": "frequency",
+                "field": models.IntegerField,
+                "verbose_name": "调用间隔(分钟)",
+                "default": -1,
+            },
+            {
+                "name": "altitude",
+                "field": models.BooleanField,
+                "verbose_name": "是否记录海拔高度",
+                "default": False,
+            },
+            {
+                "name": "accuracy",
+                "field": models.FloatField,
+                "verbose_name": "精度要求（米）",
+                "default": 5.0,
+            },
+            {
+                "name": "isHighAccuracy",
+                "field": models.BooleanField,
+                "verbose_name": "是否使用高精度模式",
+                "default": True,
+            },
+            {
+                "name": "geocode",
+                "field": models.BooleanField,
+                "verbose_name": "是否获取地理编码信息",
+                "default": False,
+            },
+            {
+                "name": "timeout",
+                "field": models.IntegerField,
+                "verbose_name": "获取超时时间（秒）",
+                "default": 30,
+            },
+        ],
+    },
+    # 蓝牙配置
+    {
+        "prefix": "bt",
+        "verbose_prefix": "蓝牙",
+        "params": [
+            {
+                "name": "frequency",
+                "field": models.IntegerField,
+                "verbose_name": "调用频率(分钟)",
+                "default": -1,
+            },
+            {
+                "name": "services",
+                "field": models.JSONField,
+                "verbose_name": "扫描的蓝牙服务 UUID",
+                "default": list,
+                "blank": True,
+            },
+            {
+                "name": "allowDuplicatesKey",
+                "field": models.BooleanField,
+                "verbose_name": "是否允许重复蓝牙数据",
+                "default": False,
+            },
+            {
+                "name": "interval",
+                "field": models.IntegerField,
+                "verbose_name": "扫描间隔（秒）",
+                "default": 5,
+            },
+            {
+                "name": "powerLevel",
+                "field": models.CharField,
+                "verbose_name": "功率级别",
+                "choices": [("low", "低功耗"), ("medium", "中等功耗"), ("high", "高功耗")],
+                "default": "medium",
+            },
+        ],
+    },
+    # 陀螺仪 & 加速度计共用模板
+    {
+        "prefix": "gyro",
+        "verbose_prefix": "陀螺仪",
+        "params": [
+            {
+                "name": "mode",
+                "field": models.CharField,
+                "verbose_name": "监听模式",
+                "choices": [("onchange", "监听变化值"), ("nochange", "无需变化的监听")],
+                "default": "onchange",
+            },
+            {
+                "name": "interval",
+                "field": models.CharField,
+                "verbose_name": "间隔模式",
+                "choices": [("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")],
+                "default": "normal",
+            },
+        ],
+    },
+    {
+        "prefix": "acc",
+        "verbose_prefix": "加速度计",
+        "params": [
+            {
+                "name": "mode",
+                "field": models.CharField,
+                "verbose_name": "监听模式",
+                "choices": [("onchange", "监听变化值"), ("nochange", "无需变化的监听")],
+                "default": "onchange",
+            },
+            {
+                "name": "interval",
+                "field": models.CharField,
+                "verbose_name": "间隔模式",
+                "choices": [("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")],
+                "default": "normal",
+            },
+        ],
+    },
+]
+class Protocol(models.Model):
     class Meta:
         verbose_name = '协议'
         verbose_name_plural = '协议表'
     
+    # 基础字段
     creator = models.CharField(max_length=64, verbose_name="协议创建者", default="")
-    protocol_name= models.CharField(max_length=255, verbose_name="协议名称")
+    protocol_name = models.CharField(max_length=255, verbose_name="协议名称")
 
+
+    # 动态生成字段
+    for sensor in SENSOR_PARAMS:
+        for param in sensor["params"]:
+            field_name = f"{sensor['prefix']}_{param['name']}"
+            verbose_name = f"{sensor['verbose_prefix']} {param['verbose_name']}"
+            
+            # 提取字段参数
+            field_kwargs = {
+                "verbose_name": verbose_name,
+                "default": param.get("default"),
+            }
+            if "choices" in param:
+                field_kwargs["choices"] = param["choices"]
+            if param.get("blank"):
+                field_kwargs["blank"] = True
+            
+            # 创建字段并添加到类属性
+            locals()[field_name] = param["field"](**field_kwargs)
+
+
+
+# class Protocol(models.Model):
+#     class Meta:
+#         verbose_name = '协议'
+#         verbose_name_plural = '协议表'
+    
+#     creator = models.CharField(max_length=64, verbose_name="协议创建者", default="")
+#     protocol_name= models.CharField(max_length=255, verbose_name="协议名称")
+    
+#       # GPS 相关
+#     gps_frequency = models.IntegerField(verbose_name="GPS调用间隔(分钟)", default=-1)
+#     gps_altitude = models.BooleanField(verbose_name="是否记录海拔高度", default=False)
+#     gps_accuracy = models.FloatField(verbose_name="GPS 精度要求（米）", default=5.0)
+#     gps_isHighAccuracy = models.BooleanField(verbose_name="是否使用高精度模式", default=True)
+#     gps_geocode = models.BooleanField(verbose_name="是否获取地理编码信息", default=False)
+#     gps_timeout = models.IntegerField(verbose_name="GPS 获取超时时间（秒）", default=30)
+
+#     # 蓝牙相关
+#     bt_frequency = models.IntegerField(verbose_name="蓝牙调用频率(分钟)", default=-1)
+#     bt_services = models.JSONField(verbose_name="扫描的蓝牙服务 UUID", default=list, blank=True)
+#     bt_allowDuplicatesKey = models.BooleanField(verbose_name="是否允许重复蓝牙数据", default=False)
+#     bt_interval = models.IntegerField(verbose_name="蓝牙扫描间隔（秒）", default=5)
+#     bt_powerLevel = models.CharField(
+#         max_length=16, 
+#         verbose_name="蓝牙功率级别", 
+#         choices=[("low", "低功耗"), ("medium", "中等功耗"), ("high", "高功耗")],
+#         default="medium"
+#     )
+
+#     # 传感器相关
+#     gyro_mode = models.CharField(
+#         max_length=16, 
+#         verbose_name="陀螺仪监听模式", 
+#         choices=[("onchange","监听变化值"),("nochange","无需变化的监听")], 
+#         default="onchange"
+#     )
+#     gyro_interval = models.CharField(
+#         max_length=16, 
+#         verbose_name="陀螺仪间隔模式", 
+#         choices=[("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")], 
+#         default="normal"
+#     )
+
+#     acc_mode = models.CharField(
+#         max_length=16, 
+#         verbose_name="加速度计监听模式", 
+#         choices=[("onchange","监听变化值"),("nochange","无需变化的监听")], 
+#         default="onchange"
+#     )
+#     acc_interval = models.CharField(
+#         max_length=16, 
+#         verbose_name="加速度计间隔模式", 
+#         choices=[("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")], 
+#         default="normal"
+#     )
 
 
 class Trigger(models.Model):
@@ -89,10 +219,11 @@ class Trigger(models.Model):
         verbose_name_plural = "触发器表"
 
     TRIGGER_TYPES = [
-        ("Location", "位置触发"),
+        ("Location", "位置触发"),   
         ("Regular Time", "定时触发"),
     ]
 
+    distance = models.IntegerField(verbose_name="haversine distance", default=200)
     trigger_type = models.CharField(
         max_length=32, 
         choices=TRIGGER_TYPES, 
@@ -187,7 +318,7 @@ class Experiment(models.Model):
     exp_title = models.CharField(max_length=64, verbose_name="实验名称", default="")
     exp_creator = models.CharField(max_length=64, verbose_name="实验创建者", default="")
     exp_code = models.CharField(max_length=255, verbose_name="实验邀请码", default="")
-    exp_staff = models.CharField(max_length=64, verbose_name="实验管理者", default="", blank=True)
+    exp_staff = models.CharField(max_length=64, verbose_name="实验管理者", default="", blank=True)  
     exp_state = models.CharField(
         max_length=16, 
         verbose_name="实验状态", 
@@ -206,6 +337,7 @@ class exp_history(models.Model):
     class Meta:
         verbose_name = '实验历史'
         verbose_name_plural = '实验历史表'
+    # (foreign expt)
     username = models.CharField(max_length=10, verbose_name="用户名")
     exp_id = models.IntegerField(verbose_name="实验ID")
     exp_title = models.CharField(max_length=64, verbose_name="实验名称", default="", blank=True)

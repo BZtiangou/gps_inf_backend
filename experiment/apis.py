@@ -358,7 +358,9 @@ class ProtocolDetailAPIView(APIView):
                 {"error": f"查询失败: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        
+from django.db import DatabaseError, IntegrityError
+from rest_framework.exceptions import ValidationError, PermissionDenied
+from django.core.exceptions import ObjectDoesNotExist
 class UserProtocolAPIView(APIView):
     """
     获取用户协议列表（包含完整问卷详细信息）
@@ -369,22 +371,51 @@ class UserProtocolAPIView(APIView):
 
     def get(self, request):
         try:
+            # 检查用户有效性
+            if not request.user.is_active:
+                return Response(
+                    {"error": "用户账户已被禁用", "code": "account_disabled"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
             username = request.user.username
             
-            # 优化数据库查询：一次性预取所有关联数据
-            protocols = Protocol.objects.filter(creator=username).prefetch_related(
-                Prefetch('surveys', 
-                    queryset=Survey.objects.select_related('trigger').prefetch_related(
-                        Prefetch('items', queryset=SurveyItem.objects.all())
+            # 数据库查询保护
+            try:
+                protocols = Protocol.objects.filter(creator=username).prefetch_related(
+                    Prefetch('surveys', 
+                        queryset=Survey.objects.select_related('trigger').prefetch_related(
+                            Prefetch('items', queryset=SurveyItem.objects.all())
+                        )
                     )
                 )
-            )
-            
-            serializer = ProtocolDetailSerializer(
-                protocols,
-                many=True,
-                context={'request': request}
-            )
+                protocol_count = protocols.count() 
+            except DatabaseError as e:
+                return Response(
+                    {
+                        "error": "数据服务暂不可用",
+                        "solution": "请检查网络连接后重试，若问题持续请联系管理员",
+                        "code": "database_unavailable"
+                    },
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE
+                )
+
+            # 数据序列化保护
+            try:
+                serializer = ProtocolDetailSerializer(
+                    protocols,
+                    many=True,
+                    context={'request': request}
+                )
+            except ValidationError as e:
+                return Response(
+                    {
+                        "error": "数据格式异常",
+                        "detail": str(e.detail),
+                        "code": "invalid_data_structure"
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
             return Response({
                 "user": username,
@@ -392,9 +423,31 @@ class UserProtocolAPIView(APIView):
                 "protocols": serializer.data
             })
 
+        except ObjectDoesNotExist as e:
+            return Response(
+                {
+                    "error": "请求资源不存在",
+                    "detail": f"{str(e)}",
+                    "code": "not_found"
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except PermissionDenied as e:
+            return Response(
+                {
+                    "error": "权限不足",
+                    "detail": "您没有查看该资源的权限",
+                    "code": "permission_denied"
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
         except Exception as e:
             return Response(
-                {"error": f"查询失败: {str(e)}"},
+                {
+                    "error": "系统服务异常",
+                    "solution": "请尝试简化查询条件，或联系技术支持",
+                    "code": "internal_server_error"
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         

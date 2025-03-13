@@ -9,7 +9,70 @@ from incdbscan import IncrementalDBSCAN
 import numpy as np
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser
+from math import radians, sin, cos, sqrt, atan2
+from sklearn.cluster import DBSCAN
 
+def haversine_distance(lon1, lat1, lon2, lat2):
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    return 6371 * c  # 单位：公里
+
+class UpdateLocationApi(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        eps_km = 0.5  # 单位：公里（例如 0.5 公里）
+        min_samples = 5
+        username = request.user.username
+        serializer = LocationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        device = serializer.validated_data.get('device')
+        longitude = serializer.validated_data.get('longitude')
+        latitude = serializer.validated_data.get('latitude')
+        accuracy = serializer.validated_data.get('accuracy')
+
+        # 获取用户所有位置信息并转换为弧度
+        user_locations = LocationInf.objects.filter(username=username).values_list('longitude', 'latitude')
+        coordinates = np.array([(radians(lon), radians(lat)) for lon, lat in user_locations])
+
+        # 插入新点（转换为弧度）
+        new_point = np.array([[radians(longitude), radians(latitude)]])
+        all_points = np.vstack((coordinates, new_point)) if len(coordinates) > 0 else new_point
+
+        # 使用 DBSCAN 和 Haversine 距离
+        clusterer = DBSCAN(eps=eps_km/6371,  # 弧度单位（eps_km / 地球半径）
+                           min_samples=min_samples,
+                           metric=haversine_distance)
+        clusterer.fit(all_points)
+        all_labels = clusterer.labels_
+
+        # 获取新点的标签
+        new_point_label = all_labels[-1]
+
+        # 如果新点形成了新的簇，则保存聚类信息
+        if new_point_label != -1 and not gps_cluster.objects.filter(
+           username=username, label=new_point_label).exists():
+            gps_cluster.objects.create(
+                username=username,
+                longitude=longitude,
+                latitude=latitude,
+                label=new_point_label
+            )
+
+        # 保存位置信息
+        LocationInf.objects.create(
+            username=username,
+            device=device,
+            longitude=longitude,
+            latitude=latitude,
+            accuracy=accuracy
+        )
+
+        return Response({"message": "Data saved successfully."})
 class adminGetGPSApi(APIView):
     permission_classes = [IsAdminUser]
     def post(self, request):
@@ -88,71 +151,71 @@ class adminGetBatteryApi(APIView):
             })
         else:
             return Response({'message': 'Please log in first'}, status=status.HTTP_400_BAD_REQUEST)
+        
+# class UpdateLocationApi(APIView):
+#     permission_classes = [IsAuthenticated]
 
-class UpdateLocationApi(APIView):
-    permission_classes = [IsAuthenticated]
+#     def post(self, request):
+#         eps = 0.001
+#         min_samples = 5
+#         username = request.user.username
+#         serializer = LocationSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
 
-    def post(self, request):
-        eps = 0.001
-        min_samples = 5
-        username = request.user.username
-        serializer = LocationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+#         device = serializer.validated_data.get('device')
+#         longitude = serializer.validated_data.get('longitude')
+#         latitude = serializer.validated_data.get('latitude')
+#         accuracy = serializer.validated_data.get('accuracy')
 
-        device = serializer.validated_data.get('device')
-        longitude = serializer.validated_data.get('longitude')
-        latitude = serializer.validated_data.get('latitude')
-        accuracy = serializer.validated_data.get('accuracy')
+#         # 获取用户所有位置信息
+#         user_locations = LocationInf.objects.filter(username=username).values_list('longitude', 'latitude')
+#         coordinates = np.array(user_locations)
 
-        # 获取用户所有位置信息
-        user_locations = LocationInf.objects.filter(username=username).values_list('longitude', 'latitude')
-        coordinates = np.array(user_locations)
+#         # 初始化增量DBSCAN
+#         clusterer = IncrementalDBSCAN(eps=eps, min_pts=min_samples)
 
-        # 初始化增量DBSCAN
-        clusterer = IncrementalDBSCAN(eps=eps, min_pts=min_samples)
+#         # 插入已有的数据点
+#         if len(coordinates) > 0:
+#             clusterer.insert(coordinates)
 
-        # 插入已有的数据点
-        if len(coordinates) > 0:
-            clusterer.insert(coordinates)
+#         # 插入新数据点
+#         new_point = np.array([[longitude, latitude]])
+#         clusterer.insert(new_point)
 
-        # 插入新数据点
-        new_point = np.array([[longitude, latitude]])
-        clusterer.insert(new_point)
+#         if len(coordinates) > 0:
+#             # 如果 coordinates 不为空，进行拼接
+#             all_labels = clusterer.get_cluster_labels(np.vstack((coordinates, new_point)))
+#         else:
+#             # 如果 coordinates 为空，直接使用 new_point
+#             all_labels = clusterer.get_cluster_labels(new_point)
 
-        if len(coordinates) > 0:
-            # 如果 coordinates 不为空，进行拼接
-            all_labels = clusterer.get_cluster_labels(np.vstack((coordinates, new_point)))
-        else:
-            # 如果 coordinates 为空，直接使用 new_point
-            all_labels = clusterer.get_cluster_labels(new_point)
+#         # 获取新点的标签
+#         new_point_label = all_labels[-1]
 
-        # 获取新点的标签
-        new_point_label = all_labels[-1]
+#         # 如果新点形成了新的簇，则保存新的聚类信息
+#         if new_point_label != -1 and not gps_cluster.objects.filter(
+#            username=username,label=new_point_label
+#         ).exists():
+#             gps_cluster.objects.create(
+#                 username=username,
+#                 longitude=longitude,
+#                 latitude=latitude,
+#                 label=new_point_label
+#             )
 
-        # 如果新点形成了新的簇，则保存新的聚类信息
-        if new_point_label != -1 and not gps_cluster.objects.filter(
-           username=username,label=new_point_label
-        ).exists():
-            gps_cluster.objects.create(
-                username=username,
-                longitude=longitude,
-                latitude=latitude,
-                label=new_point_label
-            )
+#         # 保存新的位置信息
+#         LocationInf.objects.create(
+#             username=username,
+#             device=device,
+#             longitude=longitude,
+#             latitude=latitude,
+#             accuracy=accuracy
+#         )
 
-        # 保存新的位置信息
-        LocationInf.objects.create(
-            username=username,
-            device=device,
-            longitude=longitude,
-            latitude=latitude,
-            accuracy=accuracy
-        )
-
-        # 返回成功响应和 flag
-        return Response({
-            "message": "Data saved successfully."
-        })
+#         # 返回成功响应和 flag
+#         return Response({
+#             "message": "Data saved successfully."
+#         })
     
 class UpdateBTApi(APIView):
     permission_classes = [IsAuthenticated]

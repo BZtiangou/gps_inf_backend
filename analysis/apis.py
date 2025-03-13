@@ -34,6 +34,7 @@ class adminGetBTClusterApi(APIView):
 class updateLabelApi(APIView):
     permission_classes = [IsAuthenticated]
     def post(self, request):
+        # haversine distance modify
         tolerance = 0.001
         username = request.user.username
         serializer = LabelSerializer(data=request.data)
