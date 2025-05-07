@@ -14,7 +14,7 @@ urlpatterns = [
     path('adminDeleteExp/', adminDeleteExp.as_view(),name='adminDeleteExp'),
     path('protocols/create/', CreateProtocolAPIView.as_view(),name='add_protocol'),
     path('protocols/delete/', DeleteProtocolAPIView.as_view(), name='delete-protocol'),
-    path('protocols/update/', UpdateProtocolAPIView.as_view()),
+    path('protocols/update/', UpdateProtocolAPIView.as_view(),name='updateProtocol'),
     path('protocols/list/', UserProtocolAPIView.as_view(), name='user-protocols'),
     path('protocols/get/<int:protocol_id>/', ProtocolDetailAPIView.as_view(), name='protocolDetail'),
     path('create/',CreateExperimentAPIView.as_view(),name='add_expt'),

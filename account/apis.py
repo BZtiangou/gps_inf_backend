@@ -82,8 +82,8 @@ class AdminLoginApi(APIView):
         if not user.check_password(serializer.validated_data["password"]):
             return Response({"message": "User login failed, please check your account password"}, status=status.HTTP_400_BAD_REQUEST)
         
-        if user.is_staff:  # 假设管理员的标识是 is_staff 字段
-            refresh: RefreshToken = RefreshToken.for_user(user)  # 生成refresh token
+        if user.is_staff:  
+            refresh: RefreshToken = RefreshToken.for_user(user) 
             return Response({
                 "username": user.username,
                 "refresh": str(refresh),

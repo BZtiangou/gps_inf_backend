@@ -86,7 +86,7 @@ class SurveyUpdateSerializer(serializers.Serializer):
         return survey
 # 修改原有序列化器（serializers.py）
 class ProtocolSerializer(serializers.ModelSerializer):
-    surveys = SurveySerializer(many=True, required=False)
+    surveys = SurveySerializer(many=True, required=False,allow_empty=True)
     protocol_id = serializers.IntegerField(source='id', read_only=True)  # 添加该字段
 
     class Meta:
