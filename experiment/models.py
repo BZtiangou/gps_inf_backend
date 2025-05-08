@@ -156,63 +156,6 @@ class Protocol(models.Model):
             locals()[field_name] = param["field"](**field_kwargs)
 
 
-
-# class Protocol(models.Model):
-#     class Meta:
-#         verbose_name = '协议'
-#         verbose_name_plural = '协议表'
-    
-#     creator = models.CharField(max_length=64, verbose_name="协议创建者", default="")
-#     protocol_name= models.CharField(max_length=255, verbose_name="协议名称")
-    
-#       # GPS 相关
-#     gps_frequency = models.IntegerField(verbose_name="GPS调用间隔(分钟)", default=-1)
-#     gps_altitude = models.BooleanField(verbose_name="是否记录海拔高度", default=False)
-#     gps_accuracy = models.FloatField(verbose_name="GPS 精度要求（米）", default=5.0)
-#     gps_isHighAccuracy = models.BooleanField(verbose_name="是否使用高精度模式", default=True)
-#     gps_geocode = models.BooleanField(verbose_name="是否获取地理编码信息", default=False)
-#     gps_timeout = models.IntegerField(verbose_name="GPS 获取超时时间（秒）", default=30)
-
-#     # 蓝牙相关
-#     bt_frequency = models.IntegerField(verbose_name="蓝牙调用频率(分钟)", default=-1)
-#     bt_services = models.JSONField(verbose_name="扫描的蓝牙服务 UUID", default=list, blank=True)
-#     bt_allowDuplicatesKey = models.BooleanField(verbose_name="是否允许重复蓝牙数据", default=False)
-#     bt_interval = models.IntegerField(verbose_name="蓝牙扫描间隔（秒）", default=5)
-#     bt_powerLevel = models.CharField(
-#         max_length=16, 
-#         verbose_name="蓝牙功率级别", 
-#         choices=[("low", "低功耗"), ("medium", "中等功耗"), ("high", "高功耗")],
-#         default="medium"
-#     )
-
-#     # 传感器相关
-#     gyro_mode = models.CharField(
-#         max_length=16, 
-#         verbose_name="陀螺仪监听模式", 
-#         choices=[("onchange","监听变化值"),("nochange","无需变化的监听")], 
-#         default="onchange"
-#     )
-#     gyro_interval = models.CharField(
-#         max_length=16, 
-#         verbose_name="陀螺仪间隔模式", 
-#         choices=[("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")], 
-#         default="normal"
-#     )
-
-#     acc_mode = models.CharField(
-#         max_length=16, 
-#         verbose_name="加速度计监听模式", 
-#         choices=[("onchange","监听变化值"),("nochange","无需变化的监听")], 
-#         default="onchange"
-#     )
-#     acc_interval = models.CharField(
-#         max_length=16, 
-#         verbose_name="加速度计间隔模式", 
-#         choices=[("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")], 
-#         default="normal"
-#     )
-
-
 class Trigger(models.Model):
     class Meta:
         verbose_name = "触发器"

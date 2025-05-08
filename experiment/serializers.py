@@ -21,17 +21,26 @@ class ExperimentSerializer(serializers.ModelSerializer):
 class SurveyItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = SurveyItem
-        fields = ["type", "label", "description", "question", "choices"]
-    def validate_question(self, value):
-        """清洗问题中的转义字符"""
-        cleaned = re.sub(r'[\n\t]+', ' ', value).strip()
-        return cleaned if cleaned else value
+        fields = ['id', 'type', 'label', 'description', 'question', 'choices']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+            'type': {'required': False},
+            'label': {'required': False},
+        }
+
+    def validate(self, attrs):
+        # 创建时需要必填字段
+        if self.instance is None and not attrs.get('type'):
+            raise serializers.ValidationError({"type": "该字段在创建时是必填项"})
+        return attrs
 
 class TriggerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Trigger
-        fields = ["trigger_type", "regular_time_option", "specific_time"]
-
+        fields = ['id', 'trigger_type', 'distance', 'regular_time_option', 'specific_time']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False}
+        }
 
 class SurveySerializer(serializers.ModelSerializer):
     items = SurveyItemSerializer(many=True)
@@ -39,7 +48,42 @@ class SurveySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Survey
-        fields = ["survey_name", "description", "trigger", "items"]
+        fields = ['id', 'survey_name', 'description', 'trigger', 'items']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False}
+        }
+
+    def update(self, instance, validated_data):
+        # 处理触发器更新
+        trigger_data = validated_data.pop('trigger', {})
+        Trigger.objects.filter(id=instance.trigger.id).update(**trigger_data)
+        
+        # 处理问卷项更新
+        items_data = validated_data.pop('items', [])
+        self._handle_items(instance, items_data)
+        
+        return super().update(instance, validated_data)
+
+    def _handle_items(self, survey, items_data):
+        existing_items = {item.id: item for item in survey.items.all()}
+        seen_ids = set()
+
+        # 更新或创建项目
+        for item_data in items_data:
+            item_id = item_data.get('id')
+            if item_id and item_id in existing_items:
+                item = existing_items[item_id]
+                for key, value in item_data.items():
+                    setattr(item, key, value)
+                item.save()
+                seen_ids.add(item_id)
+            else:
+                SurveyItem.objects.create(survey=survey, **item_data)
+
+        # 删除未包含的项目
+        for item_id in existing_items:
+            if item_id not in seen_ids:
+                existing_items[item_id].delete()
 class SurveyUpdateSerializer(serializers.Serializer):
     protocol_id = serializers.IntegerField()
     name = serializers.CharField(max_length=255)
@@ -85,17 +129,64 @@ class SurveyUpdateSerializer(serializers.Serializer):
 
         return survey
 # 修改原有序列化器（serializers.py）
+# class ProtocolSerializer(serializers.ModelSerializer):
+#     surveys = SurveySerializer(many=True, required=False,allow_empty=True)
+#     protocol_id = serializers.IntegerField(source='id', read_only=True)  # 添加该字段
+
+#     class Meta:
+#         model = Protocol
+#         fields = '__all__'
+#         extra_kwargs = {
+#             'id': {'read_only': True},  # 隐藏原始ID字段
+#             'creator': {'read_only': True}  # 自动填充创建者
+#         }
+
 class ProtocolSerializer(serializers.ModelSerializer):
-    surveys = SurveySerializer(many=True, required=False,allow_empty=True)
-    protocol_id = serializers.IntegerField(source='id', read_only=True)  # 添加该字段
+    surveys = SurveySerializer(many=True, required=False)
 
     class Meta:
         model = Protocol
         fields = '__all__'
         extra_kwargs = {
-            'id': {'read_only': True},  # 隐藏原始ID字段
-            'creator': {'read_only': True}  # 自动填充创建者
+            'creator': {'read_only': True}
         }
+
+    def update(self, instance, validated_data):
+        surveys_data = validated_data.pop('surveys', None)
+        
+        # 更新基础字段
+        instance = super().update(instance, validated_data)
+
+        # 处理问卷更新
+        if surveys_data is not None:
+            self._handle_surveys(instance, surveys_data)
+        
+        return instance
+
+    def _handle_surveys(self, protocol, surveys_data):
+        existing_surveys = {s.id: s for s in protocol.surveys.all()}
+        seen_ids = set()
+
+        # 更新或创建问卷
+        for survey_data in surveys_data:
+            survey_id = survey_data.get('id')
+            if survey_id and survey_id in existing_surveys:
+                survey = existing_surveys[survey_id]
+                SurveySerializer().update(survey, survey_data)
+                seen_ids.add(survey_id)
+            else:
+                trigger_data = survey_data.pop('trigger')
+                items_data = survey_data.pop('items')
+                trigger = Trigger.objects.create(**trigger_data)
+                survey = Survey.objects.create(protocol=protocol, trigger=trigger, **survey_data)
+                SurveyItem.objects.bulk_create([
+                    SurveyItem(survey=survey, **item_data) for item_data in items_data
+                ])
+
+        # 删除未包含的问卷
+        for survey_id in existing_surveys:
+            if survey_id not in seen_ids:
+                existing_surveys[survey_id].delete()
 
 class ProtocolDetailSerializer(serializers.ModelSerializer):
     surveys = SurveySerializer(many=True)

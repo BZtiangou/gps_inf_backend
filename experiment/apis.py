@@ -266,7 +266,70 @@ class DeleteProtocolAPIView(APIView):
                 {"error": "指定协议不存在"},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
+
+class ProtocolUpdateAPIView(APIView):
+    """
+    支持局部更新的协议更新API
+    PUT /api/protocols/{id}/
+    请求体示例：
+    {
+        "protocol_name": "更新后的协议",
+        "gps_frequency": 30,
+        "surveys": [
+            {
+                "id": 1,
+                "survey_name": "更新问卷",
+                "trigger": {
+                    "trigger_type": "Location",
+                    "distance": 500
+                },
+                "items": [
+                    {
+                        "id": 1,
+                        "question": "更新后的问题"
+                    },
+                    {
+                        "type": "rating",
+                        "label": "新问题",
+                        "question": "请评分"
+                    }
+                ]
+            }
+        ]
+    }
+    """
+    def post(self, request):
+        try:
+            protocol_id = request.data.get('protocol_id')
+            protocol = Protocol.objects.get(pk=protocol_id)
+        except Protocol.DoesNotExist:
+            return Response(
+                {"error": "协议不存在"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = ProtocolSerializer(
+            protocol,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+
+        try:
+            with transaction.atomic():
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
+                    return Response(
+                        {"message": "协议更新成功", "data": serializer.data},
+                        status=status.HTTP_200_OK
+                    )
+        except Exception as e:
+            return Response(
+                {"error": "更新失败", "detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
 class UpdateProtocolAPIView(APIView):
     """
     局部更新协议API

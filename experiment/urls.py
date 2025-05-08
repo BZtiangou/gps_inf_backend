@@ -1,7 +1,7 @@
 from django.urls import path
 from .apis import seeExperimentApi,chooseExperimentApi,exitExperimentApi,myExperimentApi,seeExperimentHistoryApi,adminSeeExperimentApi,adminAddExp,adminModifyExp,adminDeleteExp
 from .apis import CreateProtocolAPIView,DeleteProtocolAPIView,UpdateProtocolAPIView,UserProtocolAPIView,CreateExperimentAPIView,UpdateExperimentAPIView
-from .apis import ExperimentDetailAPIView,DeleteExperimentAPIView,UserExperimentListAPIView,ProtocolDetailAPIView,SurveyUpdateAPI
+from .apis import ExperimentDetailAPIView,DeleteExperimentAPIView,UserExperimentListAPIView,ProtocolDetailAPIView,SurveyUpdateAPI,ProtocolUpdateAPIView
 urlpatterns = [
     path('seeExp/', seeExperimentApi.as_view(),name="seeExperiment"),
     path('chooseExp/', chooseExperimentApi.as_view(),name='chooseExperiment'),
@@ -14,7 +14,7 @@ urlpatterns = [
     path('adminDeleteExp/', adminDeleteExp.as_view(),name='adminDeleteExp'),
     path('protocols/create/', CreateProtocolAPIView.as_view(),name='add_protocol'),
     path('protocols/delete/', DeleteProtocolAPIView.as_view(), name='delete-protocol'),
-    path('protocols/update/', UpdateProtocolAPIView.as_view(),name='updateProtocol'),
+    path('protocols/update/', ProtocolUpdateAPIView.as_view(),name='updateProtocol'),
     path('protocols/list/', UserProtocolAPIView.as_view(), name='user-protocols'),
     path('protocols/get/<int:protocol_id>/', ProtocolDetailAPIView.as_view(), name='protocolDetail'),
     path('create/',CreateExperimentAPIView.as_view(),name='add_expt'),
