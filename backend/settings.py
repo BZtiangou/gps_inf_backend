@@ -59,6 +59,8 @@ THIRD_PARTY_APPS = [
     'corsheaders',
     'rest_framework_simplejwt',
     'rest_framework',
+    'django_celery_beat',
+    'django_celery_results',
 ]
 
 INSTALLED_APPS = [

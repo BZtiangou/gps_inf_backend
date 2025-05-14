@@ -1,160 +1,214 @@
 from django.db import models
 
-    # 传感器参数配置模板
-SENSOR_PARAMS = [
-    # GPS 配置
-    {
-        "prefix": "gps",
-        "verbose_prefix": "GPS",
-        "params": [
-            {
-                "name": "frequency",
-                "field": models.IntegerField,
-                "verbose_name": "调用间隔(分钟)",
-                "default": -1,
-            },
-            {
-                "name": "altitude",
-                "field": models.BooleanField,
-                "verbose_name": "是否记录海拔高度",
-                "default": False,
-            },
-            {
-                "name": "accuracy",
-                "field": models.FloatField,
-                "verbose_name": "精度要求（米）",
-                "default": 5.0,
-            },
-            {
-                "name": "isHighAccuracy",
-                "field": models.BooleanField,
-                "verbose_name": "是否使用高精度模式",
-                "default": True,
-            },
-            {
-                "name": "geocode",
-                "field": models.BooleanField,
-                "verbose_name": "是否获取地理编码信息",
-                "default": False,
-            },
-            {
-                "name": "timeout",
-                "field": models.IntegerField,
-                "verbose_name": "获取超时时间（秒）",
-                "default": 30,
-            },
-        ],
-    },
-    # 蓝牙配置
-    {
-        "prefix": "bt",
-        "verbose_prefix": "蓝牙",
-        "params": [
-            {
-                "name": "frequency",
-                "field": models.IntegerField,
-                "verbose_name": "调用频率(分钟)",
-                "default": -1,
-            },
-            {
-                "name": "services",
-                "field": models.JSONField,
-                "verbose_name": "扫描的蓝牙服务 UUID",
-                "default": list,
-                "blank": True,
-            },
-            {
-                "name": "allowDuplicatesKey",
-                "field": models.BooleanField,
-                "verbose_name": "是否允许重复蓝牙数据",
-                "default": False,
-            },
-            {
-                "name": "interval",
-                "field": models.IntegerField,
-                "verbose_name": "扫描间隔（秒）",
-                "default": 5,
-            },
-            {
-                "name": "powerLevel",
-                "field": models.CharField,
-                "verbose_name": "功率级别",
-                "choices": [("low", "低功耗"), ("medium", "中等功耗"), ("high", "高功耗")],
-                "default": "medium",
-            },
-        ],
-    },
-    # 陀螺仪 & 加速度计共用模板
-    {
-        "prefix": "gyro",
-        "verbose_prefix": "陀螺仪",
-        "params": [
-            {
-                "name": "mode",
-                "field": models.CharField,
-                "verbose_name": "监听模式",
-                "choices": [("onchange", "监听变化值"), ("nochange", "无需变化的监听")],
-                "default": "onchange",
-            },
-            {
-                "name": "interval",
-                "field": models.CharField,
-                "verbose_name": "间隔模式",
-                "choices": [("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")],
-                "default": "normal",
-            },
-        ],
-    },
-    {
-        "prefix": "acc",
-        "verbose_prefix": "加速度计",
-        "params": [
-            {
-                "name": "mode",
-                "field": models.CharField,
-                "verbose_name": "监听模式",
-                "choices": [("onchange", "监听变化值"), ("nochange", "无需变化的监听")],
-                "default": "onchange",
-            },
-            {
-                "name": "interval",
-                "field": models.CharField,
-                "verbose_name": "间隔模式",
-                "choices": [("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")],
-                "default": "normal",
-            },
-        ],
-    },
-]
+#     # 传感器参数配置模板
+# SENSOR_PARAMS = [
+#     # GPS 配置
+#     {
+#         "prefix": "gps",
+#         "verbose_prefix": "GPS",
+#         "params": [
+#             {
+#                 "name": "frequency",
+#                 "field": models.IntegerField,
+#                 "verbose_name": "调用间隔(分钟)",
+#                 "default": -1,
+#             },
+#             {
+#                 "name": "altitude",
+#                 "field": models.BooleanField,
+#                 "verbose_name": "是否记录海拔高度",
+#                 "default": False,
+#             },
+#             {
+#                 "name": "accuracy",
+#                 "field": models.FloatField,
+#                 "verbose_name": "精度要求（米）",
+#                 "default": 5.0,
+#             },
+#             {
+#                 "name": "isHighAccuracy",
+#                 "field": models.BooleanField,
+#                 "verbose_name": "是否使用高精度模式",
+#                 "default": True,
+#             },
+#             {
+#                 "name": "geocode",
+#                 "field": models.BooleanField,
+#                 "verbose_name": "是否获取地理编码信息",
+#                 "default": False,
+#             },
+#             {
+#                 "name": "timeout",
+#                 "field": models.IntegerField,
+#                 "verbose_name": "获取超时时间（秒）",
+#                 "default": 30,
+#             },
+#         ],
+#     },
+#     # 蓝牙配置
+#     {
+#         "prefix": "bt",
+#         "verbose_prefix": "蓝牙",
+#         "params": [
+#             {
+#                 "name": "frequency",
+#                 "field": models.IntegerField,
+#                 "verbose_name": "调用频率(分钟)",
+#                 "default": -1,
+#             },
+#             {
+#                 "name": "services",
+#                 "field": models.JSONField,
+#                 "verbose_name": "扫描的蓝牙服务 UUID",
+#                 "default": list,
+#                 "blank": True,
+#             },
+#             {
+#                 "name": "allowDuplicatesKey",
+#                 "field": models.BooleanField,
+#                 "verbose_name": "是否允许重复蓝牙数据",
+#                 "default": False,
+#             },
+#             {
+#                 "name": "interval",
+#                 "field": models.IntegerField,
+#                 "verbose_name": "扫描间隔（秒）",
+#                 "default": 5,
+#             },
+#             {
+#                 "name": "powerLevel",
+#                 "field": models.CharField,
+#                 "verbose_name": "功率级别",
+#                 "choices": [("low", "低功耗"), ("medium", "中等功耗"), ("high", "高功耗")],
+#                 "default": "medium",
+#             },
+#         ],
+#     },
+#     # 陀螺仪 & 加速度计共用模板
+#     {
+#         "prefix": "gyro",
+#         "verbose_prefix": "陀螺仪",
+#         "params": [
+#             {
+#                 "name": "mode",
+#                 "field": models.CharField,
+#                 "verbose_name": "监听模式",
+#                 "choices": [("onchange", "监听变化值"), ("nochange", "无需变化的监听")],
+#                 "default": "onchange",
+#             },
+#             {
+#                 "name": "interval",
+#                 "field": models.CharField,
+#                 "verbose_name": "间隔模式",
+#                 "choices": [("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")],
+#                 "default": "normal",
+#             },
+#         ],
+#     },
+#     {
+#         "prefix": "acc",
+#         "verbose_prefix": "加速度计",
+#         "params": [
+#             {
+#                 "name": "mode",
+#                 "field": models.CharField,
+#                 "verbose_name": "监听模式",
+#                 "choices": [("onchange", "监听变化值"), ("nochange", "无需变化的监听")],
+#                 "default": "onchange",
+#             },
+#             {
+#                 "name": "interval",
+#                 "field": models.CharField,
+#                 "verbose_name": "间隔模式",
+#                 "choices": [("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")],
+#                 "default": "normal",
+#             },
+#         ],
+#     },
+# ]
+# class Protocol(models.Model):
+#     class Meta:
+#         verbose_name = '协议'
+#         verbose_name_plural = '协议表'
+    
+#     # 基础字段
+#     creator = models.CharField(max_length=64, verbose_name="协议创建者", default="")
+#     protocol_name = models.CharField(max_length=255, verbose_name="协议名称")
+
+
+#     # 动态生成字段
+#     for sensor in SENSOR_PARAMS:
+#         for param in sensor["params"]:
+#             field_name = f"{sensor['prefix']}_{param['name']}"
+#             verbose_name = f"{sensor['verbose_prefix']} {param['verbose_name']}"
+            
+#             # 提取字段参数
+#             field_kwargs = {
+#                 "verbose_name": verbose_name,
+#                 "default": param.get("default"),
+#             }
+#             if "choices" in param:
+#                 field_kwargs["choices"] = param["choices"]
+#             if param.get("blank"):
+#                 field_kwargs["blank"] = True
+            
+#             # 创建字段并添加到类属性
+#             locals()[field_name] = param["field"](**field_kwargs)
+
 class Protocol(models.Model):
     class Meta:
         verbose_name = '协议'
         verbose_name_plural = '协议表'
     
-    # 基础字段
     creator = models.CharField(max_length=64, verbose_name="协议创建者", default="")
-    protocol_name = models.CharField(max_length=255, verbose_name="协议名称")
+    protocol_name= models.CharField(max_length=255, verbose_name="协议名称")
+    
+      # GPS 相关
+    gps_frequency = models.IntegerField(verbose_name="GPS调用间隔(分钟)", default=-1)
+    gps_altitude = models.BooleanField(verbose_name="是否记录海拔高度", default=False)
+    gps_accuracy = models.FloatField(verbose_name="GPS 精度要求（米）", default=5.0)
+    gps_isHighAccuracy = models.BooleanField(verbose_name="是否使用高精度模式", default=True)
+    gps_geocode = models.BooleanField(verbose_name="是否获取地理编码信息", default=False)
+    gps_timeout = models.IntegerField(verbose_name="GPS 获取超时时间（秒）", default=30)
 
+    # 蓝牙相关
+    bt_frequency = models.IntegerField(verbose_name="蓝牙调用频率(分钟)", default=-1)
+    bt_services = models.JSONField(verbose_name="扫描的蓝牙服务 UUID", default=list, blank=True)
+    bt_allowDuplicatesKey = models.BooleanField(verbose_name="是否允许重复蓝牙数据", default=False)
+    bt_interval = models.IntegerField(verbose_name="蓝牙扫描间隔（秒）", default=5)
+    bt_powerLevel = models.CharField(
+        max_length=16, 
+        verbose_name="蓝牙功率级别", 
+        choices=[("low", "低功耗"), ("medium", "中等功耗"), ("high", "高功耗")],
+        default="medium"
+    )
 
-    # 动态生成字段
-    for sensor in SENSOR_PARAMS:
-        for param in sensor["params"]:
-            field_name = f"{sensor['prefix']}_{param['name']}"
-            verbose_name = f"{sensor['verbose_prefix']} {param['verbose_name']}"
-            
-            # 提取字段参数
-            field_kwargs = {
-                "verbose_name": verbose_name,
-                "default": param.get("default"),
-            }
-            if "choices" in param:
-                field_kwargs["choices"] = param["choices"]
-            if param.get("blank"):
-                field_kwargs["blank"] = True
-            
-            # 创建字段并添加到类属性
-            locals()[field_name] = param["field"](**field_kwargs)
+    # 传感器相关
+    gyro_mode = models.CharField(
+        max_length=16, 
+        verbose_name="陀螺仪监听模式", 
+        choices=[("onchange","监听变化值"),("nochange","无需变化的监听")], 
+        default="onchange"
+    )
+    gyro_interval = models.CharField(
+        max_length=16, 
+        verbose_name="陀螺仪间隔模式", 
+        choices=[("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")], 
+        default="normal"
+    )
 
+    acc_mode = models.CharField(
+        max_length=16, 
+        verbose_name="加速度计监听模式", 
+        choices=[("onchange","监听变化值"),("nochange","无需变化的监听")], 
+        default="onchange"
+    )
+    acc_interval = models.CharField(
+        max_length=16, 
+        verbose_name="加速度计间隔模式", 
+        choices=[("normal", "普通模式"), ("game", "游戏模式"), ("ui", "ui模式")], 
+        default="normal"
+    )
 
 class Trigger(models.Model):
     class Meta:
@@ -287,3 +341,13 @@ class exp_history(models.Model):
     description = models.CharField(max_length=255, verbose_name="实验描述", default="")
     join_time = models.DateTimeField(verbose_name="参加时间", auto_now_add=True)
     exit_time = models.DateTimeField(verbose_name="退出时间", null=True, blank=True)
+
+class Answer(models.Model):
+    class Meta:
+        verbose_name = '问卷回答'
+        verbose_name_plural = '问卷回答表'
+    response_id = models.AutoField(primary_key=True,verbose_name="回答ID")
+    survey_id = models.IntegerField(verbose_name="问卷ID")
+    username = models.CharField(max_length=20,verbose_name="回答者用户名")
+    answer_text = models.TextField(verbose_name="回答文本")
+    response_date = models.DateTimeField(auto_now_add=True,verbose_name="回答日期")

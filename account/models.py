@@ -30,7 +30,7 @@ class CustomUser(AbstractUser):
     exp_id = models.IntegerField(verbose_name="实验ID", default=-1)
     familiar_word_ids = models.TextField(verbose_name="熟悉的单词ID", default="", blank=True)
     unfamiliar_word_ids = models.TextField(verbose_name="不熟悉的单词ID", default="", blank=True)
-
+    call_times = models.IntegerField(verbose_name="调用AI次数",default=0)
 
 class InvitationCode(models.Model):
     """邀请码表"""

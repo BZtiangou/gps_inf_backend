@@ -2,6 +2,7 @@ from django.urls import path
 from .apis import UserRegisterApi,UserLoginApi
 from .apis import modifyPasswordApi,modifyEmailApi,modifyPhoneApi,modifyGenderApi,modifyNameApi,getUserInfoApi,AllUserNameApi,adminGetUserInfoApi
 from .apis import Is_PasswordApi,ResetPasswordApi,checkphoneApi,AdminLoginApi,CreateInvitationCodeApi, ManageExperimentParticipantsApi,GetUserInfoByNameApi
+from .apis import callDeepSeekApi
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -31,4 +32,5 @@ urlpatterns = [
     path("experiment/participants/<int:user_id>/", ManageExperimentParticipantsApi.as_view(), name="manage-participant"),
     path("profile/update/", AdminUpdateProfileApi.as_view(), name="admin-profile-update"),
     path("getByName/",GetUserInfoByNameApi.as_view(),name="getInfoByName"),
+    path("callds/",callDeepSeekApi.as_view(),name="calldeepseek")
 ]

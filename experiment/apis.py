@@ -301,7 +301,7 @@ class ProtocolUpdateAPIView(APIView):
     """
     def post(self, request):
         try:
-            protocol_id = request.data.get('protocol_id')
+            protocol_id = request.data.get('id')
             protocol = Protocol.objects.get(pk=protocol_id)
         except Protocol.DoesNotExist:
             return Response(
