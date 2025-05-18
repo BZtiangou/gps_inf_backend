@@ -1,0 +1,63 @@
+server {
+    listen 443 ssl;
+    server_name gps.primedigitaltech.com;
+    charset utf-8;
+
+    # SSL配置
+    ssl_certificate /etc/nginx/ssl/gps.primedigitaltech.com.pem;  # 替换为你的.pem文件路径
+    ssl_certificate_key /etc/nginx/ssl/gps.primedigitaltech.com.key;  # 替换为你的.key文件路径
+    
+    # 强化SSL安全性
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:MozSSL:10m;
+    ssl_session_tickets off;
+   #ssl_dhparam /etc/nginx/dhparam.pem;  # 需要生成一组交换密钥，但考虑到性能就先不加，交换密钥生成：sudo openssl dhparam -out /etc/nginx/dhparam.pem 2048
+    
+    # 现代加密套件
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    
+    # HSTS (可选但推荐)
+    add_header Strict-Transport-Security "max-age=63072000" always;
+
+    location /static/ {
+        add_header Access-Control-Allow-Origin *;
+        alias /var/www/gps_inf/static/;
+    }
+
+    location /ad-pdf {
+        alias /var/www/ad-pdf;
+        autoindex on;
+    }
+
+    location / {
+        uwsgi_pass unix:///var/www/gps_inf/backend.sock;
+        include /etc/nginx/uwsgi_params;
+        uwsgi_connect_timeout 3600;
+        uwsgi_read_timeout 3600s;
+        uwsgi_send_timeout 3600s;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name gps-front.primedigitaltech.com;
+    charset utf-8;
+
+    # 相同的SSL配置
+    ssl_certificate /etc/nginx/ssl/gps.primedigitaltech.com.pem;
+    ssl_certificate_key /etc/nginx/ssl/gps.primedigitaltech.com.key;
+    
+    location / {
+        root /var/www/gps_inf/frontend/dist;
+        index index.html;
+    }
+}
+
+# HTTP重定向到HTTPS
+server {
+    listen 80;
+    server_name gps.primedigitaltech.com gps-front.primedigitaltech.com;
+    return 301 https://$host$request_uri;
+}

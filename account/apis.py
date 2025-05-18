@@ -18,13 +18,20 @@ from rest_framework.permissions import IsAdminUser
 from .models import CustomUser, InvitationCode
 from .serializers import InvitationCodeSerializer, ExperimentParticipantSerializer
 from .serializers import AdminUpdateSerializer
+from .tasks import send_password_reset_email  # 使用相对路径导入
 import random
 import string
 import requests
 import json
 import os
 import dotenv
+import uuid
+import redis
+from datetime import timedelta
 # from openai import OpenAI
+
+# 连接 Redis
+redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
 
 class GetUserInfoByNameApi(APIView):
     permission_classes = [IsAdminUser]
@@ -297,57 +304,89 @@ class checkphoneApi(APIView):
             return Response("手机号码不存在", status=status.HTTP_400_BAD_REQUEST)
 
 
-
 # 令牌发送api 通用api
 class Is_PasswordApi(APIView):
     permission_classes = []
+    
     def post(self, request: Request) -> Response:
         serializer = IsPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        if get_user_model().objects.get(username=serializer.validated_data["username"]) == None:
-            return Response("用户不存在",status=status.HTTP_400_BAD_REQUEST)
-        user = get_user_model().objects.get(username=serializer.validated_data["username"])
-        if user.email == serializer.validated_data["email"]:
-            token_value = get_random_string(length=6)
-            user.token = token_value
-            user.token_expires = timezone.now() + timezone.timedelta(minutes=2)  # 设置2分钟后过期
-            user.save()
-            send_mail(
-                '重置密码',
-                message=f'您正在尝试找回密码或者修改其他验证信息，您的令牌是{token_value}',
-                from_email=email_inf.EMAIL_FROM,
-                recipient_list=[user.email],
+        
+        username = serializer.validated_data["username"]
+        email = serializer.validated_data["email"]
+        
+        try:
+            user = get_user_model().objects.get(username=username, email=email)
+        except get_user_model().DoesNotExist:
+            return Response(
+                {"detail": "用户不存在或邮箱不匹配"},
+                status=status.HTTP_400_BAD_REQUEST
             )
-            return Response({
-                "Token email has been sent to your reserved mailbox, please check!"
-            })
-        else:
-            return Response("The mailbox is incorrect or does not exist",status=status.HTTP_400_BAD_REQUEST)
+        
+        # 生成6位验证码
+        token_value = get_random_string(length=6, allowed_chars='0123456789')
+        redis_key = f"pwd_reset:{user.id}"
+        redis_client.setex(
+            name=redis_key,
+            time=timedelta(minutes=2),
+            value=token_value
+        )
+        
+        # 异步发送邮件
+        send_password_reset_email.delay(
+            email=user.email,
+            token=token_value
+        )
+        
+        return Response({
+            "detail": "验证码已发送至您的注册邮箱，请查收！"
+        })
 
-
-# 后续感觉需要添加验证码等防爆破
 class ResetPasswordApi(APIView):
     permission_classes = []
+    
     def post(self, request: Request) -> Response:
         serializer = ResetSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        
         username = serializer.validated_data['username']
-        if get_user_model().objects.get(username=username):
+        token = serializer.validated_data['token']
+        new_password = serializer.validated_data['password']
+        
+        try:
             user = get_user_model().objects.get(username=username)
-            if serializer.validated_data['token'] == user.token and user.token_expires and timezone.now() <= user.token_expires:
-                user = get_user_model().objects.get(username=serializer.validated_data['username'])
-                # 更新密码前，先使用 set_password 方法加密密码
-                user.set_password(serializer.validated_data['password'])
-                user.save()
-                return Response({
-                    f"Your password has been changed successfully. Please log in again"
-                })
-            else:
-                return Response({
-                    "令牌超时或错误"
-                })
-        else :
-            return Response({"The user name does not exist"},status=status.HTTP_400_BAD_REQUEST)
+        except get_user_model().DoesNotExist:
+            return Response(
+                {"detail": "用户不存在"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 从Redis获取验证码
+        redis_key = f"pwd_reset:{user.id}"
+        stored_token = redis_client.get(redis_key)
+        
+        if not stored_token:
+            return Response(
+                {"detail": "验证码已过期或未发送"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if str(stored_token) != str(token):
+            return Response(
+                {"detail": f"验证码错误{stored_token}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 验证通过后执行操作
+        user.set_password(new_password)
+        user.save()
+        
+        # 删除已使用的验证码
+        redis_client.delete(redis_key)
+        
+        return Response({
+            "detail": "密码重置成功"
+        })
 
 class modifyPasswordApi(APIView):
     permission_classes = [IsAuthenticated]
