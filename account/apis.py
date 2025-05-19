@@ -373,7 +373,7 @@ class ResetPasswordApi(APIView):
         
         if str(stored_token) != str(token):
             return Response(
-                {"detail": f"验证码错误{stored_token}"},
+                {"detail": "验证码错误"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
