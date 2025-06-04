@@ -1,7 +1,7 @@
 from django.urls import path
 from .apis import UserRegisterApi,UserLoginApi
 from .apis import modifyPasswordApi,modifyEmailApi,modifyPhoneApi,modifyGenderApi,modifyNameApi,getUserInfoApi,AllUserNameApi,adminGetUserInfoApi
-from .apis import Is_PasswordApi,ResetPasswordApi,checkphoneApi,AdminLoginApi,CreateInvitationCodeApi, ManageExperimentParticipantsApi,GetUserInfoByNameApi
+from .apis import Is_PasswordApi,ResetPasswordApi,checkphoneApi,AdminLoginApi,ManageExperimentParticipantsApi,GetUserInfoByNameApi
 from .apis import callDeepSeekApi
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -27,7 +27,6 @@ urlpatterns = [
     path("allUserName/",AllUserNameApi.as_view(),name="allUserName"),
     path("adminGetUserInfo/",adminGetUserInfoApi.as_view(),name="adminGetUserInfo"),
     path("adminlogin/", AdminLoginApi.as_view(), name="adminLogin"),
-    path("invitation/create/", CreateInvitationCodeApi.as_view(), name="create-invitation"),
     path("experiment/participants/", ManageExperimentParticipantsApi.as_view(), name="list-participants"),
     path("experiment/participants/<int:user_id>/", ManageExperimentParticipantsApi.as_view(), name="manage-participant"),
     path("profile/update/", AdminUpdateProfileApi.as_view(), name="admin-profile-update"),

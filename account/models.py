@@ -1,12 +1,6 @@
-import random
-import string
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
-
-def generate_invitation_code():
-    """生成8位随机邀请码"""
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
 class CustomUser(AbstractUser):
     class Meta:
@@ -22,22 +16,10 @@ class CustomUser(AbstractUser):
         verbose_name="性别",
         default="未知"
     )
-    token = models.CharField(max_length=6, verbose_name="修改密码令牌")
     name = models.CharField(max_length=20, verbose_name="真名", default="")
-    token_expires = models.DateTimeField(verbose_name="令牌过期时间", default=timezone.now)
     exp_state = models.CharField(max_length=64, verbose_name="实验状态", default="inactive")
     exp_title = models.CharField(max_length=64, verbose_name="实验名称", default="", blank=True)
     exp_id = models.IntegerField(verbose_name="实验ID", default=-1)
     familiar_word_ids = models.TextField(verbose_name="熟悉的单词ID", default="", blank=True)
     unfamiliar_word_ids = models.TextField(verbose_name="不熟悉的单词ID", default="", blank=True)
     call_times = models.IntegerField(verbose_name="调用AI次数",default=0)
-
-class InvitationCode(models.Model):
-    """邀请码表"""
-    creator = models.ForeignKey(CustomUser, on_delete=models.CASCADE, verbose_name="邀请码创建者")
-    code = models.CharField(max_length=8, unique=True, verbose_name="邀请码")
-    remark = models.TextField(verbose_name="邀请码备注", blank=True, null=True)
-    invited_user = models.OneToOneField(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name="invited_by", verbose_name="受邀者")
-
-    def __str__(self):
-        return f"{self.code} (创建者: {self.creator.username})"

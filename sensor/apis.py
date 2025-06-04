@@ -12,12 +12,18 @@ from rest_framework.permissions import IsAdminUser
 from math import radians, sin, cos, sqrt, atan2
 from sklearn.cluster import DBSCAN
 
-def haversine_distance(lon1, lat1, lon2, lat2):
+# 修改后的haversine_distance函数
+def haversine_distance(x, y):
+    lon1, lat1 = x
+    lon2, lat2 = y
+    return haversine_formula(lon1, lat1, lon2, lat2)
+
+def haversine_formula(lon1, lat1, lon2, lat2):
     lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
     dlon = lon2 - lon1
     dlat = lat2 - lat1
-    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
     return 6371 * c  # 单位：公里
 
 class UpdateLocationApi(APIView):
@@ -44,7 +50,7 @@ class UpdateLocationApi(APIView):
         all_points = np.vstack((coordinates, new_point)) if len(coordinates) > 0 else new_point
 
         # 使用 DBSCAN 和 Haversine 距离
-        clusterer = DBSCAN(eps=eps_km/6371,  # 弧度单位（eps_km / 地球半径）
+        clusterer = DBSCAN(eps=eps_km / 6371,  # 弧度单位（eps_km / 地球半径）
                            min_samples=min_samples,
                            metric=haversine_distance)
         clusterer.fit(all_points)
@@ -55,7 +61,7 @@ class UpdateLocationApi(APIView):
 
         # 如果新点形成了新的簇，则保存聚类信息
         if new_point_label != -1 and not gps_cluster.objects.filter(
-           username=username, label=new_point_label).exists():
+                username=username, label=new_point_label).exists():
             gps_cluster.objects.create(
                 username=username,
                 longitude=longitude,
@@ -79,7 +85,7 @@ class adminGetGPSApi(APIView):
         username = request.data.get('username')
         if username:
             # 获取与设备相关的位置信息
-            locations = LocationInf.objects.filter(username=username)
+            locations = LocationInf.objects.filter(username=username)[:100]
             location_serializer = LocationSerializer(locations, many=True)
             # 返回数据
             return Response({
@@ -95,7 +101,7 @@ class adminGetBTApi(APIView):
         username = request.data.get('username')
         if username:
             # 获取与设备相关的蓝牙信息
-            bluetooths = BlueToothInf.objects.filter(username=username)
+            bluetooths = BlueToothInf.objects.filter(username=username)[:100]
             bluetooth_serializer = BlueToothSerializer(bluetooths, many=True)
             # 返回数据
             return Response({
@@ -108,10 +114,10 @@ class adminGetBTApi(APIView):
 class adminGetACCApi(APIView):
     permission_classes = [IsAdminUser]
     def post(self, request):
-        username = request.data.get('username')[:10000]
+        username = request.data.get('username')
         if username:
             # 获取与设备相关的加速计信息
-            accs = AccelerometerInf.objects.filter(username=username)
+            accs = AccelerometerInf.objects.filter(username=username)[:100]
             acc_serializer = AccSerializer(accs, many=True)
             # 返回数据
             return Response({
@@ -127,7 +133,7 @@ class adminGetGyroApi(APIView):
         username = request.data.get('username')
         if username:
             # 获取与设备相关的加速计信息
-            gyro= GyroInf.objects.filter(username=username)[:10000]
+            gyro= GyroInf.objects.filter(username=username)[:100]
             gyro_serializer = GyroSerializer(gyro, many=True)
             # 返回数据
             return Response({

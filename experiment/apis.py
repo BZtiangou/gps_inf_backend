@@ -259,7 +259,6 @@ class DeleteProtocolAPIView(APIView):
             protocol.delete()
             return Response(
                 {"message": f"协议 {protocol_id} 删除成功"},
-                status=status.HTTP_204_NO_CONTENT
             )
         except Protocol.DoesNotExist:
             return Response(

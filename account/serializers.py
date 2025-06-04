@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import CustomUser, InvitationCode
+from .models import CustomUser
 from experiment.models import Experiment
 import re
 from django.db.models import Q
@@ -28,7 +28,6 @@ class UserSerializer(serializers.ModelSerializer):
             "device",
             "phone_number",
             "name",
-            "invitation_code"
         ]
 
     email = serializers.EmailField(required=True)
@@ -64,8 +63,7 @@ class UserSerializer(serializers.ModelSerializer):
         if not valid_experiments.exists():
             # raise serializers.ValidationError("邀请码无效或实验未激活")
             raise serializers.ValidationError("邀请码无效")
-
-        # 存储匹配的第一个实验（假设邀请码唯一）
+        # 存储匹配的第一个实验
         self.experiment = valid_experiments.first()
         return value
 
@@ -208,12 +206,6 @@ class CheckPhoneSerializer(serializers.Serializer):
         required=True
     )
 
-class InvitationCodeSerializer(serializers.ModelSerializer):
-    """邀请码序列化器"""
-    class Meta:
-        model = InvitationCode
-        fields = ['id', 'code', 'remark', 'creator', 'invited_user']
-        read_only_fields = ['creator', 'code']  # 仅创建者可管理
 
 class ExperimentParticipantSerializer(serializers.ModelSerializer):
     """实验参与者管理"""

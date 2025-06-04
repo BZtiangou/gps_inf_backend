@@ -11,21 +11,14 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils.crypto import get_random_string
-from django.core.mail import send_mail
-from django.utils import timezone
-from base import email_inf
 from rest_framework.permissions import IsAdminUser
-from .models import CustomUser, InvitationCode
-from .serializers import InvitationCodeSerializer, ExperimentParticipantSerializer
-from .serializers import AdminUpdateSerializer
+from .models import CustomUser
+from .serializers import ExperimentParticipantSerializer,AdminUpdateSerializer
 from .tasks import send_password_reset_email  # 使用相对路径导入
-import random
-import string
 import requests
 import json
 import os
 import dotenv
-import uuid
 import redis
 from datetime import timedelta
 # from openai import OpenAI
@@ -250,7 +243,7 @@ class callDeepSeekApi(APIView):
             username=request.user.username
             user=CustomUser.objects.get(username=username)
             user.call_times+=1
-            if(user.call_times > 100):
+            if(user.call_times > 10000000000):
                 return Response(
                     {
                         "status": "Failure",
@@ -502,28 +495,6 @@ class modifyNameApi(APIView):
             return Response("Name changed successfully")
         return Response({"The user name does not exist"},status=status.HTTP_400_BAD_REQUEST)
     
-class CreateInvitationCodeApi(APIView):
-    """
-    创建邀请码 API
-    仅 `staff` 或 `admin` 用户可以创建邀请码
-    """
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        user = request.user
-        if not user.is_staff and not user.is_superuser:
-            return Response({"message": "Permission Denied"}, status=status.HTTP_403_FORBIDDEN)
-        
-        # 生成邀请码
-        invitation_code = InvitationCode.objects.create(
-            creator=user,
-            code=''.join(random.choices(string.ascii_uppercase + string.digits, k=8)),
-            remark=request.data.get("remark", "")
-        )
-
-        serializer = InvitationCodeSerializer(invitation_code)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
 class ManageExperimentParticipantsApi(APIView):
     """
     管理实验参与者 API
