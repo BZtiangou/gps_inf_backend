@@ -28,6 +28,7 @@ class UserSerializer(serializers.ModelSerializer):
             "device",
             "phone_number",
             "name",
+            'invitation_code',
         ]
 
     email = serializers.EmailField(required=True)
@@ -154,17 +155,11 @@ class modifyPhoneSerializer(serializers.Serializer):
 
 # 邮箱修改
 class modifyEmailSerializer(serializers.Serializer):
-    # username = serializers.CharField(
-    #     max_length=150,
-    #     required=True
-    # )
     email= serializers.CharField(
         max_length=150,
         required=True
     )
-    # token=serializers.CharField(
-    #     required=True
-    # )
+
 
 class modifyGenderSerializer(serializers.Serializer):
     gender= serializers.CharField(
@@ -188,12 +183,6 @@ class userInfoSerializer(serializers.ModelSerializer):
             "name",
             "gender",
         ]
-# class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
-#     @classmethod
-#     def get_token(cls, user):
-#         token = super().get_token(user)
-#         token['username'] = user.name
-#         return token
 
 class CheckPhoneSerializer(serializers.Serializer):
     class Meta:

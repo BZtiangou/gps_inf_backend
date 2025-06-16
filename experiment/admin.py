@@ -4,7 +4,7 @@ from .models import Experiment,exp_history
 
 class experimentAdmin(admin.ModelAdmin):
     fields = ( 'start_time','end_time','exp_title','description',)
-    list_display = ('exp_id','exp_title','description','start_time','end_time',"participants_name",)
+    list_display = ('exp_id','exp_title','description','start_time','end_time',"participants_name","exp_staff")
     list_per_page = 10
     search_fields = ['exp_title']
     list_filter = ('exp_title',)

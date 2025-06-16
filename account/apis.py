@@ -21,6 +21,7 @@ import os
 import dotenv
 import redis
 from datetime import timedelta
+from experiment.models import Experiment,Protocol
 # from openai import OpenAI
 
 # 连接 Redis
@@ -87,14 +88,52 @@ class AdminLoginApi(APIView):
         if not user.check_password(serializer.validated_data["password"]):
             return Response({"message": "User login failed, please check your account password"}, status=status.HTTP_400_BAD_REQUEST)
         
-        if user.is_staff:  
+        if user.is_staff or user.exp_staff != "":  
             refresh: RefreshToken = RefreshToken.for_user(user) 
-            return Response({
+            response_data=({
                 "username": user.username,
                 "refresh": str(refresh),
                 "access": str(refresh.access_token),
                 "expire": refresh.access_token.payload["exp"] - refresh.access_token.payload["iat"],
             })
+                        # 添加传感器配置信息
+            if user.exp_id != -1:
+                try:
+                    experiment = Experiment.objects.get(exp_id=user.exp_id)
+                    protocol = Protocol.objects.get(id=experiment.protocol_id)
+                    # GPS相关配置
+                    response_data["gps"] = {
+                        "frequency": protocol.gps_frequency,
+                        "altitude": protocol.gps_altitude,
+                        "accuracy": protocol.gps_accuracy,
+                        "isHighAccuracy": protocol.gps_isHighAccuracy,
+                        "geocode": protocol.gps_geocode,
+                        "timeout": protocol.gps_timeout
+                    }
+                    # 蓝牙相关配置
+                    response_data["bluetooth"] = {
+                        "frequency": protocol.bt_frequency,
+                        "services": protocol.bt_services,
+                        "allowDuplicatesKey": protocol.bt_allowDuplicatesKey,
+                        "interval": protocol.bt_interval,
+                        "powerLevel": protocol.bt_powerLevel
+                    }
+                    
+                    # 传感器相关配置
+                    response_data["gyroscope"] = {
+                        "mode": protocol.gyro_mode,
+                        "interval": protocol.gyro_interval
+                    }
+                    
+                    response_data["accelerometer"] = {
+                        "mode": protocol.acc_mode,
+                        "interval": protocol.acc_interval
+                    }
+                        
+                except (Experiment.DoesNotExist, Protocol.DoesNotExist):
+                    # 如果查询失败，返回默认值或空对象
+                    pass
+            return Response(response_data)
         else:
             return Response({"message": "User is not an admin"}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -137,22 +176,65 @@ class UserRegisterApi(APIView):
         
 class UserLoginApi(APIView):
     permission_classes = []
+    
     def post(self, request: Request) -> Response:
         serializer = UserLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        
         try:
             user = get_user_model().objects.get(username=serializer.validated_data["username"])
         except ObjectDoesNotExist:
             return Response({"message": "User not registered"}, status=status.HTTP_400_BAD_REQUEST)
         
         if user.check_password(serializer.validated_data["password"]):
-            refresh: RefreshToken = RefreshToken.for_user(user)  # 生成refresh token
-            return Response({
+            refresh: RefreshToken = RefreshToken.for_user(user)
+            response_data = {
                 "username": user.username,
                 "refresh": str(refresh),
                 "access": str(refresh.access_token),
                 "expire": refresh.access_token.payload["exp"] - refresh.access_token.payload["iat"],
-            })
+            }
+            
+            # 添加传感器配置信息
+            if user.exp_id != -1:
+                try:
+                    experiment = Experiment.objects.get(exp_id=user.exp_id)
+                    protocol = Protocol.objects.get(id=experiment.protocol_id)
+                    
+                    # GPS相关配置
+                    response_data["gps"] = {
+                        "frequency": protocol.gps_frequency,
+                        "altitude": protocol.gps_altitude,
+                        "accuracy": protocol.gps_accuracy,
+                        "isHighAccuracy": protocol.gps_isHighAccuracy,
+                        "geocode": protocol.gps_geocode,
+                        "timeout": protocol.gps_timeout
+                    }
+                    # 蓝牙相关配置
+                    response_data["bluetooth"] = {
+                        "frequency": protocol.bt_frequency,
+                        "services": protocol.bt_services,
+                        "allowDuplicatesKey": protocol.bt_allowDuplicatesKey,
+                        "interval": protocol.bt_interval,
+                        "powerLevel": protocol.bt_powerLevel
+                    }
+                    
+                    # 传感器相关配置
+                    response_data["gyroscope"] = {
+                        "mode": protocol.gyro_mode,
+                        "interval": protocol.gyro_interval
+                    }
+                    
+                    response_data["accelerometer"] = {
+                        "mode": protocol.acc_mode,
+                        "interval": protocol.acc_interval
+                    }
+                        
+                except (Experiment.DoesNotExist, Protocol.DoesNotExist):
+                    # 如果查询失败，返回默认值或空对象
+                    pass
+            
+            return Response(response_data)
         else:
             return Response({"message": "User login failed, please check your account password"})
         
@@ -397,49 +479,6 @@ class modifyPasswordApi(APIView):
                 })
         return Response({"The user name does not exist"},status=status.HTTP_400_BAD_REQUEST)
 
-# class modifyPhoneApi(APIView):
-#     permission_classes = []
-#     def post(self, request: Request) -> Response:
-#         serializer = modifyPhoneSerializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         username = serializer.validated_data['username']
-#         if get_user_model().objects.get(username=username):
-#             user = get_user_model().objects.get(username=username)
-#             if serializer.validated_data['token'] == user.token and timezone.now() <= user.token_expires:
-#                 user = get_user_model().objects.get(username=serializer.validated_data['username'])
-#                 user.phone_number = serializer.validated_data['phone_number']
-#                 user.save()
-#                 return Response({
-#                     f"您的手机号修改成功!"
-#                 })
-#             else:
-#                 return Response({
-#                     "令牌超时或错误"
-#                 })
-#         else :
-#             return Response({"The user name does not exist"},status=status.HTTP_404_NOT_FOUND)
-
-# class modifyEmailApi(APIView):
-#     permission_classes = []
-#     def post(self, request: Request) -> Response:
-#         serializer = modifyEmailSerializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         username = serializer.validated_data['username']
-#         if get_user_model().objects.get(username=username):
-#             user = get_user_model().objects.get(username=username)
-#             if serializer.validated_data['token'] == user.token and timezone.now() <= user.token_expires:
-#                 user = get_user_model().objects.get(username=serializer.validated_data['username'])
-#                 user.email = serializer.validated_data['email']
-#                 user.save()
-#                 return Response({
-#                     f"Your email address has been successfully modified!"
-#                 })
-#             else:
-#                 return Response({
-#                     "令牌超时或错误"
-#                 })
-#         else :
-#             return Response({"The user name does not exist"},status=status.HTTP_400_BAD_REQUEST)
 
 # 无安全验证版本
 class modifyEmailApi(APIView):

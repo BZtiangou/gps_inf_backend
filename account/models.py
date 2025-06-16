@@ -23,3 +23,6 @@ class CustomUser(AbstractUser):
     familiar_word_ids = models.TextField(verbose_name="熟悉的单词ID", default="", blank=True)
     unfamiliar_word_ids = models.TextField(verbose_name="不熟悉的单词ID", default="", blank=True)
     call_times = models.IntegerField(verbose_name="调用AI次数",default=0)
+    invitation_code = models.CharField(max_length=20, verbose_name="邀请码", default="")
+    exp_staff = models.CharField(max_length=128,verbose_name="参与管理的实验",default="")
+

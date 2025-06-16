@@ -164,18 +164,18 @@ class Protocol(models.Model):
     protocol_name= models.CharField(max_length=255, verbose_name="协议名称")
     
       # GPS 相关
-    gps_frequency = models.IntegerField(verbose_name="GPS调用间隔(分钟)", default=-1)
+    gps_frequency = models.IntegerField(verbose_name="GPS调用间隔(分钟)", default=10)
     gps_altitude = models.BooleanField(verbose_name="是否记录海拔高度", default=False)
-    gps_accuracy = models.FloatField(verbose_name="GPS 精度要求（米）", default=5.0)
+    gps_accuracy = models.FloatField(verbose_name="GPS 精度要求（米）", default=50)
     gps_isHighAccuracy = models.BooleanField(verbose_name="是否使用高精度模式", default=True)
     gps_geocode = models.BooleanField(verbose_name="是否获取地理编码信息", default=False)
-    gps_timeout = models.IntegerField(verbose_name="GPS 获取超时时间（秒）", default=30)
+    gps_timeout = models.IntegerField(verbose_name="GPS 获取超时时间（秒）", default=5)
 
     # 蓝牙相关
-    bt_frequency = models.IntegerField(verbose_name="蓝牙调用频率(分钟)", default=-1)
+    bt_frequency = models.IntegerField(verbose_name="蓝牙调用频率(分钟)", default=10)
     bt_services = models.JSONField(verbose_name="扫描的蓝牙服务 UUID", default=list, blank=True)
     bt_allowDuplicatesKey = models.BooleanField(verbose_name="是否允许重复蓝牙数据", default=False)
-    bt_interval = models.IntegerField(verbose_name="蓝牙扫描间隔（秒）", default=5)
+    bt_interval = models.IntegerField(verbose_name="蓝牙扫描间隔(秒),0表示扫描新设备后立刻上报", default=0)
     bt_powerLevel = models.CharField(
         max_length=16, 
         verbose_name="蓝牙功率级别", 
@@ -324,11 +324,21 @@ class Experiment(models.Model):
     )
     description = models.CharField(max_length=255, verbose_name="实验描述", default="")
     participants_name = models.CharField(max_length=64, verbose_name="实验参与者", default="", blank=True)
+        # 新增字段
+    participants_count = models.IntegerField(verbose_name="参与者数量", default=0)
     protocol_name= models.CharField(max_length=255, verbose_name="实验选择的协议名称")
     protocol_id = models.IntegerField(verbose_name="协议ID")
     def __str__(self):
         return f"{self.exp_name} ({self.exp_id})"
-
+    def save(self, *args, **kwargs):
+        # 根据participants_name字段中的分号数量计算参与者数量
+        if self.participants_name:
+            # 如果participants_name不为空，则计算分号数量加一
+            self.participants_count = self.participants_name.count(';') + 1
+        else:
+            # 如果participants_name为空，则参与者数量为0
+            self.participants_count = 0
+        super().save(*args, **kwargs)
 
 class exp_history(models.Model):
     class Meta:

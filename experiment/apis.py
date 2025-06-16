@@ -1,6 +1,6 @@
 from .models import Experiment,exp_history, Protocol, Survey, SurveyItem, Trigger
 from .serializers import seeExperimentSerializer,exp_historySerializer,ExperimentSerializer,ProtocolSerializer,ProtocolDetailSerializer
-from .serializers import UserExperimentSerializer,SurveyUpdateSerializer
+from .serializers import UserExperimentSerializer,SurveyUpdateSerializer,StaffInfoSerializer
 from django.db import transaction
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -121,10 +121,11 @@ class myExperimentApi(APIView):
 
     def get(self,request):
         username=request.user.username
-        if CustomUser.objects.get(username=username).exp_id==-1:
+        flag = CustomUser.objects.get(username=username).exp_id
+        if flag==-1:
             return Response("Please choose an experiment at first",status=520)
         else:
-            Serializer = seeExperimentSerializer(Experiment.objects.get(exp_id=CustomUser.objects.get(username=username).exp_id))
+            Serializer = seeExperimentSerializer(Experiment.objects.get(flag))
             return Response([Serializer.data])
 
 class exitExperimentApi(APIView):
@@ -525,14 +526,26 @@ class CreateExperimentAPIView(APIView):
     3. 支持多管理人员设置
     """
     permission_classes = [IsAdminUser]
-
+        # 辅助函数：解析分号分隔的字符串
+    def _parse_staff_string(self, staff_string):
+        return [name.strip() for name in staff_string.split(";") if name.strip()] if staff_string else []
+    
+    def _parse_exp_string(self, exp_string):
+        return [exp.strip() for exp in exp_string.split(";") if exp.strip()] if exp_string else []
+    
+    # 辅助函数：创建分号分隔的字符串
+    def _create_staff_string(self, staff_set):
+        return  ";".join(filter(None, staff_set))  if staff_set else ""
+    
+    def _create_exp_string(self, exp_set):
+        return  ";".join(filter(None, exp_set))  if exp_set else ""
+    
     def post(self, request):
         # 复制请求数据以避免修改原始数据
         data = request.data.copy()
         
         # 自动填充实验创建者
         data['exp_creator'] = request.user.username
-        
         # 验证协议是否存在
         protocol_id = data.get('protocol_id')
         if not Protocol.objects.filter(id=protocol_id).exists():
@@ -546,7 +559,20 @@ class CreateExperimentAPIView(APIView):
         if serializer.is_valid():
             try:
                 # 保存实验并返回结果
+                staff_list=self._parse_staff_string(data["exp_staff"])
                 experiment = serializer.save()
+                experiment.save()
+                # 更新每个staff用户的实验列表
+                for staff_name in staff_list:
+                    try:
+                        user = CustomUser.objects.get(username=staff_name)
+                        user_exps = set(self._parse_exp_string(user.exp_staff))
+                        user_exps.add(str(experiment.exp_id))
+                        user.exp_staff = self._create_exp_string(user_exps)
+                        user.save()
+                    except CustomUser.DoesNotExist:
+                        # 如果staff用户不存在，跳过但继续处理其他用户
+                        continue
                 return Response(
                     {
                         "message": "实验创建成功",
@@ -730,3 +756,122 @@ class UserExperimentListAPIView(APIView):
                 {"error": f"查询失败: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+
+# class StaffManageView(APIView):
+#     def get(self,request):
+#         expt = Experiment.objects.filter(exp_id=request.GET.get('id'))
+#         seri = StaffInfoSerializer(expt)
+#         return Response({seri})
+        
+#     def post(self,requeset):
+#         expt = Experiment.objects.filter(exp_id=requeset.data.get("id"))
+#         expt.exp_staff
+#         seri = StaffInfoSerializer(expt)
+
+    
+#     def delete(self,request):
+#         pass
+
+
+class StaffManageView(APIView):
+
+        # 辅助函数：解析分号分隔的字符串
+    def _parse_staff_string(self, staff_string):
+        return [name.strip() for name in staff_string.split(";") if name.strip()] if staff_string else []
+    
+    def _parse_exp_string(self, exp_string):
+        return [exp.strip() for exp in exp_string.split(";") if exp.strip()] if exp_string else []
+    
+    # 辅助函数：创建分号分隔的字符串
+    def _create_staff_string(self, staff_set):
+        return  ";".join(filter(None, staff_set))  if staff_set else ""
+    
+    def _create_exp_string(self, exp_set):
+        return  ";".join(filter(None, exp_set))  if exp_set else ""
+    
+    permission_classes=[IsAdminUser]
+    def get(self, request):
+        """获取实验的所有staff"""
+        exp_id = request.GET.get('id')
+        if not exp_id:
+            return Response({"error": "缺少实验ID参数"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            experiment = Experiment.objects.get(exp_id=exp_id)
+            staff_list = self._parse_staff_string(experiment.exp_staff)
+            return Response({"staff": staff_list}, status=status.HTTP_200_OK)
+        except Experiment.DoesNotExist:
+            return Response({"error": "实验不存在"}, status=status.HTTP_404_NOT_FOUND)
+    
+    
+    def post(self, request):
+        """向实验添加staff"""
+        exp_id = request.data.get("id")
+        staff_names = request.data.get("staff")
+        
+        if not exp_id or not staff_names:
+            return Response({"error": "缺少必要参数"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            staff_list = self._parse_staff_string(staff_names)
+            with transaction.atomic():
+                experiment = Experiment.objects.get(exp_id=exp_id)
+                # 更新实验的staff列表 
+                current_staff = set(self._parse_staff_string(experiment.exp_staff))
+                updated_staff = current_staff | set(staff_list)
+                experiment.exp_staff = self._create_staff_string(updated_staff)
+                experiment.save()
+                
+                # 更新每个staff用户的实验列表
+                for staff_name in staff_list:
+                    try:
+                        user = CustomUser.objects.get(username=staff_name)
+                        user_exps = set(self._parse_exp_string(user.exp_staff))
+                        user_exps.add(str(exp_id))
+                        user.exp_staff = self._create_exp_string(user_exps)
+                        user.save()
+                    except CustomUser.DoesNotExist:
+                        # 如果staff用户不存在，跳过但继续处理其他用户
+                        continue
+            
+            return Response({"success": "已添加staff", "staff": list(updated_staff)}, 
+                           status=status.HTTP_200_OK)
+        
+        except Experiment.DoesNotExist:
+            return Response({"error": "实验不存在"}, status=status.HTTP_404_NOT_FOUND)
+    
+    def delete(self, request):
+        """从实验中删除staff"""
+        exp_id = request.data.get("id")
+        staff_names = request.data.get("staff")
+        
+        if not exp_id or not staff_names:
+            return Response({"error": "缺少必要参数"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            staff_list = self._parse_staff_string(staff_names)
+            with transaction.atomic():
+                experiment = Experiment.objects.get(exp_id=exp_id)
+                # 更新实验的staff列表
+                current_staff = set(self._parse_staff_string(experiment.exp_staff))
+                updated_staff = current_staff - set(staff_list)
+                experiment.exp_staff = self._create_staff_string(updated_staff)
+                experiment.save()
+                
+                # 更新每个staff用户的实验列表
+                for staff_name in staff_list:
+                    try:
+                        user = CustomUser.objects.get(name=staff_name)
+                        user_exps = set(self._parse_exp_string(user.exp_staff))
+                        user_exps.discard(str(exp_id))  # 安全移除
+                        user.exp_staff = self._create_exp_string(user_exps)
+                        user.save()
+                    except CustomUser.DoesNotExist:
+                        continue
+            
+            return Response({"success": "已删除staff", "staff": list(updated_staff)}, 
+                           status=status.HTTP_200_OK)
+        
+        except Experiment.DoesNotExist:
+            return Response({"error": "实验不存在"}, status=status.HTTP_404_NOT_FOUND)

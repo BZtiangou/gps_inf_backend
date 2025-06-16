@@ -5,12 +5,12 @@ import re
 class seeExperimentSerializer(serializers.ModelSerializer):
     class Meta:
         model=Experiment
-        fields = ['exp_title','description','start_time','end_time','gps_frequency','acc_frequency','bt_frequency','gyro_frequency']
+        fields = '__all__'
 
 class exp_historySerializer(serializers.ModelSerializer):
     class Meta:
         model=exp_history
-        fields = ['exp_id','exp_title','username','description','join_time','exit_time']
+        fields = '__all__'
 
 class ExperimentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -84,6 +84,7 @@ class SurveySerializer(serializers.ModelSerializer):
         for item_id in existing_items:
             if item_id not in seen_ids:
                 existing_items[item_id].delete()
+
 class SurveyUpdateSerializer(serializers.Serializer):
     protocol_id = serializers.IntegerField()
     name = serializers.CharField(max_length=255)
@@ -228,5 +229,14 @@ class UserExperimentSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Experiment
-        # fields = ['exp_id', 'exp_title','exp_state','protocol_name','exp_staff','exp_code']
         fields = '__all__'
+
+
+#获取某个实验对应所有staff
+class StaffInfoSerializer(serializers.ModelSerializer):
+    """
+    用来获取某个实验对应的所有staff
+    """
+    class Meata:
+        models = Experiment
+        fields=['exp_staff']

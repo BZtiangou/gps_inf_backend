@@ -2,6 +2,7 @@ from django.urls import path
 from .apis import seeExperimentApi,chooseExperimentApi,exitExperimentApi,myExperimentApi,seeExperimentHistoryApi,adminSeeExperimentApi,adminAddExp,adminModifyExp,adminDeleteExp
 from .apis import CreateProtocolAPIView,DeleteProtocolAPIView,UpdateProtocolAPIView,UserProtocolAPIView,CreateExperimentAPIView,UpdateExperimentAPIView
 from .apis import ExperimentDetailAPIView,DeleteExperimentAPIView,UserExperimentListAPIView,ProtocolDetailAPIView,SurveyUpdateAPI,ProtocolUpdateAPIView
+from .apis import StaffManageView
 urlpatterns = [
     path('seeExp/', seeExperimentApi.as_view(),name="seeExperiment"),
     path('chooseExp/', chooseExperimentApi.as_view(),name='chooseExperiment'),
@@ -23,5 +24,6 @@ urlpatterns = [
     path('get/',ExperimentDetailAPIView.as_view(),name='get_expt'),
     path('list/',UserExperimentListAPIView.as_view(),name='expt_list'),
     path('surveys/update/',SurveyUpdateAPI.as_view(),name='update_survey'),
+    path('staff/',StaffManageView.as_view(),name='staff_manage'),
 ]
 
